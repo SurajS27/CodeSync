@@ -1,3 +1,5 @@
+import sys
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +7,9 @@ from app.core.config import settings
 from app.core.logging import log_startup, log_shutdown, setup_logging
 from app.core.middleware import RequestLoggingMiddleware
 from app.api.router import api_router
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Setup logging configuration immediately at startup
 setup_logging()

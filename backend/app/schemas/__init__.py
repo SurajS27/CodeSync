@@ -1,1 +1,4 @@
-# Pydantic serialization and validation schemas package
+# Export user schemas
+from app.schemas.user import UserBase, UserCreate, UserResponse
+
+__all__ = ["UserBase", "UserCreate", "UserResponse"]

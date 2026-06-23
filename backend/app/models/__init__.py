@@ -1,4 +1,5 @@
-# Database models package
+# Database models package registration
 from app.database.base import Base
+from app.models.user import User
 
-__all__ = ["Base"]
+__all__ = ["Base", "User"]
