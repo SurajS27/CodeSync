@@ -1,6 +1,7 @@
 # Export schemas
 from app.schemas.user import UserBase, UserCreate, UserResponse
 from app.schemas.repository import RepositoryBase, RepositoryCreate, RepositoryResponse, RepositoryCreateResponse
+from app.schemas.sync import LeetCodeSyncRequest, LeetCodeSyncResponse, SyncHistoryResponse
 
 __all__ = [
     "UserBase",
@@ -9,5 +10,8 @@ __all__ = [
     "RepositoryBase",
     "RepositoryCreate",
     "RepositoryResponse",
-    "RepositoryCreateResponse"
+    "RepositoryCreateResponse",
+    "LeetCodeSyncRequest",
+    "LeetCodeSyncResponse",
+    "SyncHistoryResponse"
 ]
