@@ -107,7 +107,7 @@ Comprehensive guides for developers are available in the [docs/](file:///d:/Code
 - **[Chrome Extension Guide](file:///d:/CodeSync/CodeSync/docs/extension.md)**: MV3 scripts, storage models, and message passing.
 - **[Local Development Setup](file:///d:/CodeSync/CodeSync/docs/local-development.md)**: Step-by-step onboarding walkthrough.
 - **[Testing Guidelines](file:///d:/CodeSync/CodeSync/docs/testing.md)**: Manual verification and automation tests.
-- **[Milestones Archive](file:///d:/CodeSync/CodeSync/docs/milestones.md)**: Recap of milestones v0.1 through v0.7.
+- **[Milestones Archive](file:///d:/CodeSync/CodeSync/docs/milestones.md)**: Recap of milestones v0.1 through v0.8.
 - **[Project Roadmap](file:///d:/CodeSync/CodeSync/docs/roadmap.md)**: Future milestones.
 - **[Security Practices](file:///d:/CodeSync/CodeSync/docs/security.md)**: Tokens, encryption, and validations.
 - **[Architectural Decisions (ADRs)](file:///d:/CodeSync/CodeSync/docs/decisions.md)**: Design rationales.
