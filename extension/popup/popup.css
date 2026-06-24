@@ -438,3 +438,36 @@ label {
 .sync-status-text {
   font-weight: 500;
 }
+
+/* Latest Submission Card Metadata Grid */
+.submission-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meta-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.meta-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+

@@ -78,7 +78,7 @@ async function handleTabStateChange(tab) {
   }
 }
 
-// 1. Message Broker: Listens for problem detection dispatches from content scripts
+// 1. Message Broker: Listens for dispatches from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "PROBLEM_DETECTED") {
     const { title, slug, difficulty, url } = message.data;
@@ -99,6 +99,63 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       });
     });
+  }
+
+  if (message.type === "SUBMISSION_DETECTED") {
+    const submission = message.data;
+
+    // Validate payload against all rules
+    if (
+      submission.status === "accepted" &&
+      submission.submission_id &&
+      submission.language &&
+      submission.source_code &&
+      submission.source_code.length > 5 &&
+      submission.problem_title &&
+      submission.problem_slug &&
+      submission.difficulty
+    ) {
+      chrome.storage.local.get(["latest_submission", "submission_history"], (result) => {
+        const latest = result.latest_submission;
+
+        // Prevent duplicate storage for the same submission_id with identical metrics
+        if (
+          latest &&
+          latest.submission_id === submission.submission_id &&
+          latest.runtime === submission.runtime &&
+          latest.memory === submission.memory
+        ) {
+          console.log(`[Background] Duplicate submission ID ${submission.submission_id} ignored.`);
+          return;
+        }
+
+        const detectedAt = Date.now();
+        const payloadToStore = {
+          latest_submission: submission,
+          detected_at: detectedAt
+        };
+
+        // Manage optional rolling history of up to 20 entries (newest first)
+        let history = result.submission_history || [];
+        // Filter out old version of the same submission ID to update in history
+        history = history.filter(item => item.submission_id !== submission.submission_id);
+        
+        history.unshift({
+          ...submission,
+          detected_at: detectedAt
+        });
+        if (history.length > 20) {
+          history = history.slice(0, 20);
+        }
+        payloadToStore.submission_history = history;
+
+        chrome.storage.local.set(payloadToStore, () => {
+          console.log(`[Background] Stored/Updated latest submission ID ${submission.submission_id} for "${submission.problem_title}"`);
+        });
+      });
+    } else {
+      console.warn("[Background] Ignored invalid or non-accepted submission payload:", submission);
+    }
   }
 });
 

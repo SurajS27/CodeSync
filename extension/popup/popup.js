@@ -26,10 +26,20 @@ const problemTitle = document.getElementById("problem-title");
 const problemDifficulty = document.getElementById("problem-difficulty");
 const syncStatusRow = document.getElementById("sync-status-row");
 
+// Latest Submission DOM Elements
+const submissionCard = document.getElementById("submission-card");
+const submissionTitle = document.getElementById("submission-title");
+const submissionDifficulty = document.getElementById("submission-difficulty");
+const submissionLang = document.getElementById("submission-lang");
+const submissionId = document.getElementById("submission-id");
+const submissionRuntime = document.getElementById("submission-runtime");
+const submissionMemory = document.getElementById("submission-memory");
+
 document.addEventListener("DOMContentLoaded", async () => {
   setupDevModeVisibility();
   await initPopupState();
   await renderActiveProblem();
+  await renderLatestSubmission();
   setupEventListeners();
 });
 
@@ -106,6 +116,34 @@ async function renderActiveProblem() {
   
   // Show "Ready for Sync" status indicator
   syncStatusRow.classList.remove("hidden");
+}
+
+/**
+ * Reads the latest submission from storage and populates the popup interface.
+ */
+async function renderLatestSubmission() {
+  const data = await chrome.storage.local.get(["latest_submission"]);
+  const submission = data.latest_submission;
+
+  if (!submission) {
+    submissionCard.classList.add("hidden");
+    return;
+  }
+
+  submissionTitle.textContent = submission.problem_title;
+
+  // Difficulty badge
+  const diffClass = submission.difficulty.toLowerCase();
+  submissionDifficulty.className = `badge-difficulty ${diffClass}`;
+  submissionDifficulty.textContent = submission.difficulty.charAt(0).toUpperCase() + submission.difficulty.slice(1);
+
+  // Metadata
+  submissionLang.textContent = submission.language;
+  submissionId.textContent = submission.submission_id;
+  submissionRuntime.textContent = submission.runtime || "N/A";
+  submissionMemory.textContent = submission.memory || "N/A";
+
+  submissionCard.classList.remove("hidden");
 }
 
 /**
@@ -241,9 +279,15 @@ function setupEventListeners() {
 
   // Task 12 requirement: Subscribe to storage updates to update popup in real-time
   chrome.storage.onChanged.addListener(async (changes, namespace) => {
-    if (namespace === "local" && changes.current_problem) {
-      console.log("[Popup] Active problem changed in storage, re-rendering.");
-      await renderActiveProblem();
+    if (namespace === "local") {
+      if (changes.current_problem) {
+        console.log("[Popup] Active problem changed in storage, re-rendering.");
+        await renderActiveProblem();
+      }
+      if (changes.latest_submission) {
+        console.log("[Popup] Latest submission changed in storage, re-rendering.");
+        await renderLatestSubmission();
+      }
     }
   });
 }
