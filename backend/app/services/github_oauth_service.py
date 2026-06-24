@@ -15,7 +15,7 @@ class GitHubOAuthService:
         """Generates the GitHub authorization URL for starting OAuth sequence."""
         params = {
             "client_id": settings.GITHUB_CLIENT_ID,
-            "scope": "read:user user:email",
+            "scope": "repo read:user user:email",
             "state": state
         }
         return f"https://github.com/login/oauth/authorize?{urlencode(params)}"
