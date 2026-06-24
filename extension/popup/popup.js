@@ -20,9 +20,16 @@ const settingsBtn = document.getElementById("settings-btn");
 const logoutBtn = document.getElementById("logout-btn");
 const statusMsg = document.getElementById("status-msg");
 
+// Active Problem Section DOM Elements
+const problemHeaderLabel = document.getElementById("problem-header-label");
+const problemTitle = document.getElementById("problem-title");
+const problemDifficulty = document.getElementById("problem-difficulty");
+const syncStatusRow = document.getElementById("sync-status-row");
+
 document.addEventListener("DOMContentLoaded", async () => {
   setupDevModeVisibility();
   await initPopupState();
+  await renderActiveProblem();
   setupEventListeners();
 });
 
@@ -70,6 +77,35 @@ async function initPopupState() {
     showUnauthenticatedState();
     showStatus(error.message, "error");
   }
+}
+
+/**
+ * Reads the active problem from storage and populates the popup interface.
+ */
+async function renderActiveProblem() {
+  const data = await chrome.storage.local.get(["current_problem"]);
+  const current = data.current_problem;
+
+  if (!current) {
+    problemHeaderLabel.textContent = "Current Problem";
+    problemTitle.textContent = "No LeetCode problem detected";
+    problemDifficulty.className = "badge-difficulty hidden";
+    problemDifficulty.textContent = "";
+    syncStatusRow.classList.add("hidden");
+    return;
+  }
+
+  // Task 11 requirement: Show "Last Detected Problem" if the problem exists in storage
+  problemHeaderLabel.textContent = "Last Detected Problem";
+  problemTitle.textContent = current.title;
+
+  // Render difficulty badge
+  const diffClass = current.difficulty.toLowerCase(); // easy, medium, hard
+  problemDifficulty.className = `badge-difficulty ${diffClass}`;
+  problemDifficulty.textContent = current.difficulty.charAt(0).toUpperCase() + current.difficulty.slice(1);
+  
+  // Show "Ready for Sync" status indicator
+  syncStatusRow.classList.remove("hidden");
 }
 
 /**
@@ -201,6 +237,14 @@ function setupEventListeners() {
     await StorageClient.clearAll();
     showUnauthenticatedState();
     showStatus("Logged out successfully.", "success");
+  });
+
+  // Task 12 requirement: Subscribe to storage updates to update popup in real-time
+  chrome.storage.onChanged.addListener(async (changes, namespace) => {
+    if (namespace === "local" && changes.current_problem) {
+      console.log("[Popup] Active problem changed in storage, re-rendering.");
+      await renderActiveProblem();
+    }
   });
 }
 

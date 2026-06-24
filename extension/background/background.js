@@ -1,26 +1,132 @@
 /**
  * CodeSync Background Service Worker
- * Serves as the extension's orchestrator and event listener foundation.
+ * Coordinates solution detection state, tab focus states, and action badges.
  */
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("CodeSync Chrome Extension Foundation (v0.6.0) successfully installed.");
+  console.log("CodeSync Extension (v0.7.0) successfully installed/reloaded.");
 });
 
-// Monitor storage updates to log session/settings lifecycle events
+// Helper: Checks if a URL represents a LeetCode problem description page
+function isLeetCodeProblemUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("leetcode.com")) return false;
+    
+    const path = parsed.pathname;
+    if (!path.startsWith("/problems/")) return false;
+    
+    const ignoreList = ["/problemset/", "/submissions/", "/solutions/", "/contest/"];
+    for (const segment of ignoreList) {
+      if (path.includes(segment)) return false;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Helper: Updates the extension action badge color and label based on difficulty
+function updateBadge(difficulty) {
+  if (!difficulty) {
+    chrome.action.setBadgeText({ text: "" });
+    return;
+  }
+
+  const cleanDiff = difficulty.toLowerCase();
+  let text = "";
+  let color = "";
+
+  if (cleanDiff === "easy") {
+    text = "E";
+    color = "#10b981"; // Vibrant Green
+  } else if (cleanDiff === "medium") {
+    text = "M";
+    color = "#f59e0b"; // Vibrant Orange
+  } else if (cleanDiff === "hard") {
+    text = "H";
+    color = "#ef4444"; // Vibrant Red
+  }
+
+  chrome.action.setBadgeText({ text });
+  chrome.action.setBadgeBackgroundColor({ color });
+}
+
+// Helper: Evaluates tab properties to set or clear active badges dynamically
+async function handleTabStateChange(tab) {
+  if (!tab || !tab.url) {
+    updateBadge(null);
+    return;
+  }
+
+  if (isLeetCodeProblemUrl(tab.url)) {
+    const data = await chrome.storage.local.get(["current_problem"]);
+    const current = data.current_problem;
+    
+    // Check if the stored problem matches the active tab's pathname slug
+    if (current && tab.url.includes(`/problems/${current.slug}`)) {
+      updateBadge(current.difficulty);
+    } else {
+      // Loading/transition state
+      chrome.action.setBadgeText({ text: "..." });
+      chrome.action.setBadgeBackgroundColor({ color: "#6b7280" });
+    }
+  } else {
+    // Hide badge if the user is on a non-LeetCode tab (stored problem remains intact)
+    updateBadge(null);
+  }
+}
+
+// 1. Message Broker: Listens for problem detection dispatches from content scripts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "PROBLEM_DETECTED") {
+    const { title, slug, difficulty, url } = message.data;
+    const tabId = sender.tab ? sender.tab.id : null;
+
+    const storagePayload = {
+      current_problem: { title, slug, difficulty, url },
+      last_detected_at: Date.now(),
+      source_tab_id: tabId
+    };
+
+    chrome.storage.local.set(storagePayload, () => {
+      console.log(`[Background] Saved active problem: "${title}" (${difficulty})`);
+      // Update badge immediately if the message is from the active tab
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0] && tabs[0].id === tabId) {
+          updateBadge(difficulty);
+        }
+      });
+    });
+  }
+});
+
+// 2. Tab Change Monitors: Triggers badge state evaluations on tab focus or URL load
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    await handleTabStateChange(tab);
+  } catch (err) {
+    console.debug("[Background] Tab query warning:", err);
+  }
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete" || changeInfo.url) {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab && activeTab.id === tabId) {
+      await handleTabStateChange(activeTab);
+    }
+  }
+});
+
+// 3. Storage Observer (Debugging / Logging)
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace !== "local") return;
 
   if (changes.token) {
     const action = changes.token.newValue ? "saved" : "removed";
-    console.log(`Authentication session token was ${action}.`);
-  }
-
-  if (changes.selectedRepositoryId) {
-    console.log(`Active selected repository updated to: ${changes.selectedRepositoryId.newValue}`);
-  }
-
-  if (changes.apiBaseUrl) {
-    console.log(`API Base URL setting updated to: ${changes.apiBaseUrl.newValue}`);
+    console.log(`[Background] Auth token ${action}.`);
   }
 });

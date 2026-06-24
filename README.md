@@ -1,249 +1,119 @@
-# CodeSync 🚀
+# CodeSync
 
-CodeSync is a Chrome Extension that automatically syncs accepted coding challenge submissions from platforms like LeetCode to GitHub.
-
-The goal is to help developers build and maintain a coding portfolio without manually copying solutions into repositories.
+CodeSync is a developer productivity tool that automatically synchronizes solved coding challenges (e.g., from LeetCode) directly to a provisioned, structured GitHub repository. It ensures developers can maintain an automated, centralized, and clean portfolio of their problem-solving achievements.
 
 ---
 
-# Problem Statement
+## The Problem Solved
 
-Developers solve hundreds of coding problems across different platforms but rarely maintain a structured record of their solutions.
+Software developers solve hundreds of algorithm challenges on platforms like LeetCode to improve their skills and prepare for technical interviews. However:
+1. **Manual Effort**: Copy-pasting code, creating structured directories, and writing README problem descriptions in a GitHub repository is tedious and rarely kept up-to-date.
+2. **Scatter**: Solved submissions remain locked inside the coding platform, inaccessible as a structured portfolio for recruiters.
+3. **Friction**: Existing browser extensions are often unmaintained, require manual file uploads, or store tokens insecurely in plaintext.
 
-As a result:
-
-- GitHub activity remains disconnected from coding practice.
-- Solutions are scattered across multiple platforms.
-- Building a public coding portfolio requires manual effort.
-- Progress tracking becomes difficult.
-
-CodeSync automates this entire workflow.
+**CodeSync** automates this by detecting solved problems, structuring folders on GitHub automatically, creating description files, committing solution codes, and keeping a secure, auditable history of synchronizations.
 
 ---
 
-# MVP Features
+## Core Features
 
-## GitHub Authentication
+- **GitHub OAuth Login**: Simple, secure authentication yielding a stateless backend JWT.
+- **Repository Provisioning & Auto-Bootstrapping**: Automatically creates a GitHub repository and bootstraps it with a structured layout, `.gitignore`, and configuration metadata.
+- **LeetCode Detection Engine**: Content script detects visited challenge pages, extracts details (Title, Slug, Difficulty, URL), and updates extension status badges (`E`/`M`/`H`) in real-time.
+- **Idempotent Sync Pipeline**: Commits solutions and problem READMEs to structured folders (e.g. `leetcode/easy/two-sum/`). Updates existing files without duplicate commits.
+- **Auditable Sync History**: Keeps local database records of every sync event (`PENDING` -> `RUNNING` -> `COMPLETED`/`FAILED`) with commit URLs and SHAs.
 
-- GitHub OAuth Login
-- Secure JWT-based authentication
-- Repository configuration
+---
 
-## LeetCode Integration
+## Technology Stack
 
-- Detect Accepted submissions
-- Extract problem metadata
-- Extract submitted solution
-- Generate problem documentation
+- **Backend**: FastAPI, Async SQLAlchemy 2.x, Alembic, PostgreSQL (via Neon Serverless), Psycopg v3.
+- **Chrome Extension**: Manifest V3, Vanilla JavaScript, Chrome Storage API, Content Scripts, Service Worker.
+- **Integrations**: GitHub OAuth API, GitHub REST Contents API.
 
-## GitHub Synchronization
+---
 
-Automatically create:
+## System Architecture
 
-```text
-DSA-Solutions/
-└── LeetCode/
-    └── 28_Find_the_Index_of_the_First_Occurrence_in_a_String/
-        ├── solution.cpp
-        └── README.md
 ```
-
-and push the files to GitHub.
-
----
-
-# Example Generated README
-
-```markdown
-# 28. Find the Index of the First Occurrence in a String
-
-## Platform
-LeetCode
-
-## Difficulty
-Easy
-
-## Topics
-- String
-- Two Pointers
-
-## Runtime
-0 ms
-
-## Memory
-8.94 MB
-
-## Language
-C++
-
-## Problem URL
-https://leetcode.com/problems/find-the-index-of-the-first-occurrence-in-a-string/
++-------------------------------------------------------------+
+|                     Chrome Extension                        |
+|  [Popup UI] <---> [Storage Client] <---> [Content Script]   |
++------------------------------+------------------------------+
+                               | (JWT Auth / REST API)
+                               v
++-------------------------------------------------------------+
+|                     FastAPI Backend                         |
+|   [Routers] <---> [Services] <---> [SQLAlchemy ORM]         |
++-------------------+----------------------+------------------+
+                    |                      |
+                    v                      v
+        +-----------------------+  +-----------------------+
+        |  PostgreSQL Database  |  |      GitHub API       |
+        |   (Neon Serverless)   |  |   (REST v3 Client)    |
+        +-----------------------+  +-----------------------+
 ```
 
 ---
 
-# Architecture
+## Screenshots Placeholders
 
-```text
-Chrome Extension
-        │
-        ▼
-GitHub OAuth
-        │
-        ▼
-FastAPI Backend
-        │
-        ▼
-PostgreSQL
-        │
-        ▼
-GitHub API
-```
+### 1. GitHub OAuth Authorization
+*Redirects user securely to GitHub for application authorization, yielding a custom API JWT.*
+
+### 2. Repository Provisioning
+*Provisions a new repository or links an existing one, triggering the layout bootstrapping.*
+
+### 3. Extension Popup UI
+*A sleek dark-mode glassmorphic popup containing user profiles, target repository select inputs, active challenge metadata, and sync statuses.*
+
+### 4. LeetCode Active Page Detection
+*Content scripts parse problem pages, updating the toolbar extension action badge with color-coded difficulty levels (Green E, Orange M, Red H).*
 
 ---
 
-# Tech Stack
+## Quick Start
 
-## Chrome Extension
+### 1. Spin up the Backend API
+1. Navigate to the backend folder and activate your virtual environment:
+   ```bash
+   cd backend
+   .venv\Scripts\activate
+   ```
+2. Set up your `.env` configuration file containing Neon database connection strings and GitHub OAuth Client credentials.
+3. Start the server using Uvicorn:
+   ```bash
+   python -m uvicorn app.main:app --reload
+   ```
 
-- React
-- TypeScript
-- Vite
-- Manifest V3
-
-## Backend
-
-- FastAPI
-- SQLAlchemy 2.x
-- PostgreSQL
-- Alembic
-- Pydantic v2
-
-## Authentication
-
-- GitHub OAuth
-- JWT
-
-## Database
-
-- PostgreSQL
-- Neon (Planned Deployment)
-
-## Deployment
-
-- Render
-- Neon PostgreSQL
+### 2. Install the Chrome Extension
+1. Open Google Chrome and go to `chrome://extensions/`.
+2. Enable **Developer mode** in the top-right corner.
+3. Click **Load unpacked** and select the `extension/` directory.
+4. Pin **CodeSync** to your browser toolbar.
 
 ---
 
-# Repository Structure
+## Documentation Index
 
-```text
-CodeSync/
-│
-├── backend/
-│
-├── extension/
-│
-├── docs/
-│   ├── mvp.md
-│   └── project_context.md
-│
-└── README.md
-```
+Comprehensive guides for developers are available in the [docs/](file:///d:/CodeSync/CodeSync/docs/) directory:
 
----
-
-# Development Roadmap
-
-## Phase 1 — MVP
-
-### Backend
-
-- [ ] FastAPI Foundation
-- [ ] PostgreSQL Integration
-- [ ] Alembic Setup
-- [ ] User Model
-- [ ] GitHub OAuth
-- [ ] JWT Authentication
-
-### Extension
-
-- [ ] Manifest V3 Setup
-- [ ] React + TypeScript Setup
-- [ ] Settings Page
-- [ ] OAuth Integration
-
-### LeetCode Integration
-
-- [ ] Accepted Submission Detection
-- [ ] Metadata Extraction
-- [ ] Solution Extraction
-
-### GitHub Sync
-
-- [ ] Repository Creation
-- [ ] File Upload
-- [ ] README Generation
+- **[System Architecture](file:///d:/CodeSync/CodeSync/docs/architecture.md)**: Deep dive with sequence diagrams.
+- **[Project Directory Map](file:///d:/CodeSync/CodeSync/docs/project-structure.md)**: Project layout explanation.
+- **[Backend Service Guide](file:///d:/CodeSync/CodeSync/docs/backend.md)**: FastAPI services, routers, and layers.
+- **[Database Models & Schema](file:///d:/CodeSync/CodeSync/docs/database.md)**: Table definitions, constraints, and ERD.
+- **[API Endpoint Specifications](file:///d:/CodeSync/CodeSync/docs/api-reference.md)**: Payloads and request details.
+- **[GitHub Integration Mechanics](file:///d:/CodeSync/CodeSync/docs/github-integration.md)**: OAuth flows and Contents API writes.
+- **[Chrome Extension Guide](file:///d:/CodeSync/CodeSync/docs/extension.md)**: MV3 scripts, storage models, and message passing.
+- **[Local Development Setup](file:///d:/CodeSync/CodeSync/docs/local-development.md)**: Step-by-step onboarding walkthrough.
+- **[Testing Guidelines](file:///d:/CodeSync/CodeSync/docs/testing.md)**: Manual verification and automation tests.
+- **[Milestones Archive](file:///d:/CodeSync/CodeSync/docs/milestones.md)**: Recap of milestones v0.1 through v0.7.
+- **[Project Roadmap](file:///d:/CodeSync/CodeSync/docs/roadmap.md)**: Future milestones.
+- **[Security Practices](file:///d:/CodeSync/CodeSync/docs/security.md)**: Tokens, encryption, and validations.
+- **[Architectural Decisions (ADRs)](file:///d:/CodeSync/CodeSync/docs/decisions.md)**: Design rationales.
 
 ---
 
-## Phase 2 — Platform Support
+## Contributing
 
-- HackerRank
-- Codeforces
-- GeeksForGeeks
-- AtCoder
-
----
-
-## Phase 3 — Analytics
-
-- Coding Streaks
-- Difficulty Analysis
-- Topic Distribution
-- Progress Dashboard
-
----
-
-## Phase 4 — Data Engineering
-
-- Event Pipelines
-- Daily Aggregations
-- Trend Analysis
-- Recommendation Engine
-
----
-
-## Phase 5 — Intelligence Layer
-
-- Personalized Recommendations
-- Weak Topic Detection
-- Interview Preparation Insights
-- Learning Paths
-
----
-
-# Current Status
-
-🚧 In Development
-
-Current Milestone:
-
-- Backend Foundation
-- Database Setup
-- GitHub OAuth
-
----
-
-# License
-
-MIT License
-
----
-
-# Author
-
-**Suraj Sikchi**
-
-Building tools that help developers learn, track progress, and showcase their coding journey.
+Please read [CONTRIBUTING.md](file:///d:/CodeSync/CodeSync/CONTRIBUTING.md) for details on our code style, branching strategies, and pull request review criteria.

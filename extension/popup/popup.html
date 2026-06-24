@@ -63,6 +63,20 @@
             <select id="repo-select" class="form-control select-control">
               <option value="" disabled selected>Select a repository...</option>
             </select>
+        </div>
+
+        <!-- Active Problem Detection Card -->
+        <div id="problem-card" class="problem-container">
+          <label id="problem-header-label">Current Problem</label>
+          <div class="problem-details-box">
+            <div class="problem-title-row">
+              <span id="problem-title" class="problem-title-text">No LeetCode problem detected</span>
+              <span id="problem-difficulty" class="badge-difficulty hidden">Easy</span>
+            </div>
+            <div id="sync-status-row" class="sync-status-row hidden">
+              <span class="status-indicator-dot"></span>
+              <span id="sync-status-text" class="sync-status-text">Ready for Sync</span>
+            </div>
           </div>
         </div>
 
