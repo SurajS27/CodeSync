@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import Boolean, String, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 
@@ -49,4 +49,11 @@ class User(Base):
         Boolean,
         default=True,
         nullable=False
+    )
+
+    # Relationships
+    repositories: Mapped[list["Repository"]] = relationship(
+        "Repository",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
