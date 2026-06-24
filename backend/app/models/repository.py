@@ -105,7 +105,7 @@ class Repository(Base):
     )
 
     bootstrap_status: Mapped[BootstrapStatus] = mapped_column(
-        SQLEnum(BootstrapStatus, name="bootstrapstatus"),
+        SQLEnum(BootstrapStatus, name="bootstrapstatus", values_callable=lambda x: [e.value for e in x]),
         default=BootstrapStatus.PENDING,
         nullable=False
     )
