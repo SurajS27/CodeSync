@@ -1,4 +1,5 @@
 import { StorageClient } from "./storage.js";
+import { Logger } from "./logger.js";
 
 /**
  * APIClient communicates with the CodeSync Backend API.
@@ -76,7 +77,7 @@ export const APIClient = {
     } catch (error) {
       clearTimeout(timerId);
       if (error.name === "AbortError") {
-        const timeoutErr = new Error("Synchronization timed out. Please try again.");
+        const timeoutErr = new Error("Request timed out. Please try again.");
         timeoutErr.status = 408;
         throw timeoutErr;
       }
@@ -118,13 +119,45 @@ export const APIClient = {
   },
 
   /**
+   * Helper request wrapper with retry logic.
+   * Retries 3 times with 1s, 2s, 4s exponential backoff.
+   * Only retries on network errors, timeouts, or 5xx server responses.
+   */
+  async requestWithRetry(method, path, token = null, body = null, timeoutMs = 30000) {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const backoffSchedule = [1000, 2000, 4000];
+
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        return await this.request(method, path, token, body, timeoutMs);
+      } catch (error) {
+        const isNetworkError = error.status === 503 || (error.message && error.message.includes("Unable to connect"));
+        const isTimeoutError = error.status === 408 || (error.message && error.message.includes("timed out"));
+        const is5xxError = error.status >= 500 && error.status < 600;
+        const shouldRetry = isNetworkError || isTimeoutError || is5xxError;
+
+        if (!shouldRetry || attempt === 4) {
+          throw error;
+        }
+
+        const backoffMs = backoffSchedule[attempt - 1];
+        await Logger.logWarning(
+          "api",
+          `Attempt ${attempt} failed (status: ${error.status}). Retrying in ${backoffMs}ms. Error: ${error.message}`
+        );
+        await delay(backoffMs);
+      }
+    }
+  },
+
+  /**
    * Synchronizes a LeetCode submission to the target repository
    * @param {string} token 
    * @param {object} payload 
    * @returns {Promise<object>}
    */
   async syncLeetCodeSubmission(token, payload) {
-    return await this.request("POST", "/sync/leetcode", token, payload);
+    return await this.requestWithRetry("POST", "/sync/leetcode", token, payload);
   },
 
   /**

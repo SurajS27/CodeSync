@@ -16,10 +16,23 @@
         </svg>
         <span class="logo-text">CodeSync</span>
       </div>
-      <span class="version">v0.9.0</span>
+      <span class="version">v0.10.0</span>
     </header>
 
     <main class="content">
+      <div id="offline-banner" class="offline-banner hidden">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+          <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+          <line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+        <span>No internet connection</span>
+      </div>
+
       <!-- Unauthenticated State -->
       <section id="unauth-section" class="section hidden">
         <div class="hero">
@@ -63,6 +76,7 @@
             <select id="repo-select" class="form-control select-control">
               <option value="" disabled selected>Select a repository...</option>
             </select>
+          </div>
         </div>
 
         <!-- Active Problem Detection Card -->
@@ -77,6 +91,7 @@
               <span class="status-indicator-dot"></span>
               <span id="sync-status-text" class="sync-status-text">Ready for Sync</span>
             </div>
+          </div>
         </div>
 
         <!-- Latest Submission Card -->
@@ -138,6 +153,50 @@
                 </svg>
                 View on GitHub
               </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Last Sync Status Card -->
+        <div id="last-sync-box" class="problem-container">
+          <label>Last Sync Status</label>
+          <div class="problem-details-box">
+            <div class="problem-title-row">
+              <span id="last-sync-state" class="problem-title-text">No Previous Sync</span>
+            </div>
+            <div id="last-sync-details" class="hidden" style="margin-top: 8px;">
+              <div class="submission-meta-grid" style="margin-bottom: 0;">
+                <div class="meta-item">
+                  <span class="meta-label">Problem</span>
+                  <span id="last-sync-problem" class="meta-value">N/A</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Repository</span>
+                  <span id="last-sync-repo" class="meta-value">N/A</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Status</span>
+                  <span id="last-sync-badge" class="history-status-badge">N/A</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">Timestamp</span>
+                  <span id="last-sync-time" class="meta-value">N/A</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pending Syncs Recovery Card -->
+        <div id="pending-syncs-card" class="problem-container hidden">
+          <label>Pending Syncs</label>
+          <div class="problem-details-box">
+            <div class="problem-title-row" style="margin-bottom: 8px;">
+              <span class="problem-title-text">Pending Syncs: <span id="pending-count">0</span></span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button id="retry-pending-btn" class="btn btn-primary" style="font-size: 11px; padding: 6px 10px;">Retry Pending Syncs</button>
+              <button id="clear-pending-btn" class="btn btn-danger" style="font-size: 11px; padding: 6px 10px;">Clear Pending Syncs</button>
             </div>
           </div>
         </div>

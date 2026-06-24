@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CodeSync",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Automatically synchronize your coding challenge solutions to GitHub.",
   "permissions": [
     "storage",
@@ -16,7 +16,8 @@
     "default_popup": "popup/popup.html"
   },
   "background": {
-    "service_worker": "background/background.js"
+    "service_worker": "background/background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -27,6 +28,16 @@
       "js": [
         "content/content_detect.js",
         "content/submission_detector.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:8000/api/v1/auth/github/callback*",
+        "http://127.0.0.1:8000/api/v1/auth/github/callback*"
+      ],
+      "js": [
+        "content/oauth_callback.js"
       ],
       "run_at": "document_idle"
     }
