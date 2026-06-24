@@ -1,6 +1,6 @@
 # CodeSync Project Milestones
 
-This archive documents the historical progress, features, tests, and architectural evolutions of completed milestones (v0.1 to v0.7).
+This archive documents the historical progress, features, tests, and architectural evolutions of completed milestones (v0.1 to v0.8).
 
 ---
 
@@ -64,3 +64,13 @@ This archive documents the historical progress, features, tests, and architectur
 - **Files Created**: `extension/content/content_detect.js`.
 - **Verification**: Navigated through Easy/Medium/Hard problems on LeetCode. Checked badge updates (`E`/`M`/`H`), active problem popups rendering, and storage updates.
 - **Lessons Learned**: Difficulty selectors must check for **exact string matching** rather than substring regex checks to prevent false positive matches on other elements (e.g., editorial tabs) sharing color classes.
+
+---
+
+## Milestone v0.8: Submission Detection Engine
+- **Goal**: Detect successful LeetCode submissions and extract submission metadata, code, language, runtime, and memory metrics.
+- **Features**: Injected submission observer content script, implemented Monaco Editor DOM scraper, normalized programming language extensions, parsed runtime/memory metrics under asynchronous page updates, restricted duplicate observation payloads, and built real-time storage sync popup panels.
+- **Files Created**: `extension/content/submission_detector.js`.
+- **Verification**: Submitted solutions for Palindrome Number and Longest Substring Without Repeating Characters. Verified extraction of cpp/python languages, runtime/memory stats, code content, duplicate prevention, and real-time popups.
+- **Lessons Learned**: Async DOM updates on single page apps require deferring duplicate checks until metrics are successfully loaded to prevent storing incomplete data payloads.
+
