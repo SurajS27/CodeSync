@@ -8,6 +8,7 @@ from app.services.repository_access_service import RepositoryAccessService
 from app.services.sync_history_service import SyncHistoryService
 from app.services.path_generation_service import PathGenerationService
 from app.services.github_content_service import GitHubContentService
+from app.services.readme_generation_service import READMEGenerationService
 
 logger = logging.getLogger("codesync.services.leetcode_sync")
 
@@ -67,12 +68,13 @@ class LeetCodeSyncService:
             readme_path = PathGenerationService.generate_readme_path(prob_dir)
 
             # 5. Generate dynamic README content
-            readme_content = (
-                f"# {request.problem_title}\n\n"
-                f"Difficulty: {request.difficulty.value.capitalize()}\n\n"
-                f"Platform: LeetCode\n\n"
-                f"Language: {request.language.capitalize()}\n\n"
-                f"Synced via [CodeSync](https://github.com/SurajS27/CodeSync)\n"
+            readme_content = READMEGenerationService.generate_readme(
+                problem_title=request.problem_title,
+                problem_slug=request.problem_slug,
+                difficulty=request.difficulty.value,
+                language=request.language,
+                runtime=request.runtime,
+                memory=request.memory
             )
 
             # 6. Check existing files on GitHub to ensure idempotency
