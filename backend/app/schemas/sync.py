@@ -13,6 +13,8 @@ class LeetCodeSyncRequest(BaseModel):
     difficulty: DifficultyLevel
     language: str = Field(..., max_length=50)
     source_code: str = Field(..., min_length=1)
+    runtime: Optional[str] = None
+    memory: Optional[str] = None
 
 
 class LeetCodeSyncResponse(BaseModel):

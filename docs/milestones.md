@@ -1,6 +1,6 @@
 # CodeSync Project Milestones
 
-This archive documents the historical progress, features, tests, and architectural evolutions of completed milestones (v0.1 to v0.8).
+This archive documents the historical progress, features, tests, and architectural evolutions of completed milestones (v0.1 to v0.9.1).
 
 ---
 
@@ -73,4 +73,25 @@ This archive documents the historical progress, features, tests, and architectur
 - **Files Created**: `extension/content/submission_detector.js`.
 - **Verification**: Submitted solutions for Palindrome Number and Longest Substring Without Repeating Characters. Verified extraction of cpp/python languages, runtime/memory stats, code content, duplicate prevention, and real-time popups.
 - **Lessons Learned**: Async DOM updates on single page apps require deferring duplicate checks until metrics are successfully loaded to prevent storing incomplete data payloads.
+
+---
+
+## Milestone v0.9: Automatic Sync Workflow
+- **Goal**: Synchronize accepted LeetCode submissions directly to GitHub via backend sync endpoints and show real-time progress.
+- **Features**: Extended API client with AbortController 30s timeouts, implemented confirmation dialogs, added Sync Button enablement logic, handled duplicate prevention using repository-aware `last_sync` mapping, displayed commit results (SHA, Path, Link), and integrated cached Recent Syncs panel (5-minute TTL).
+- **Files Modified**: `extension/scripts/api.js`, `extension/popup/popup.html`, `extension/popup/popup.css`, `extension/popup/popup.js`.
+- **Verification**: Verified end-to-end syncs for Palindrome Number C++ solution, verified commit URLs on GitHub, verified cache loading for history panel, verified 409 Conflict mapping to "Already Synced" status, and verified switching repositories to re-sync.
+- **Lessons Learned**: Mapping 409 Conflicts to a clean UI warning instead of generic failures provides a premium user experience. Caching API calls (like sync history) reduces unnecessary network load.
+
+---
+
+## Milestone v0.9.1: README Generation Enhancement
+- **Goal**: Enhance generated problem description README files to look highly professional, clean, and recruiters-friendly.
+- **Features**: Extracted README content generation from sync service to standalone `READMEGenerationService`, added translation maps for language names (e.g. `cpp` -> `C++`, `python` -> `Python`), generated markdown tables, structured problem links, and supported optional submission metrics (runtime, memory).
+- **Files Created**: `backend/app/services/readme_generation_service.py`.
+- **Files Modified**: `backend/app/services/leetcode_sync_service.py`, `backend/app/schemas/sync.py`.
+- **Verification**: Verified Markdown table alignment, language translations, and optional submission metrics handling.
+- **Lessons Learned**: Isolating file generation templates to single-responsibility modules makes code maintenance simple and clean.
+
+
 

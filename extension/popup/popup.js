@@ -34,12 +34,26 @@ const submissionLang = document.getElementById("submission-lang");
 const submissionId = document.getElementById("submission-id");
 const submissionRuntime = document.getElementById("submission-runtime");
 const submissionMemory = document.getElementById("submission-memory");
+const submissionStatusText = document.getElementById("submission-status-text");
+
+// Sync controls
+const syncBtn = document.getElementById("sync-btn");
+const syncResult = document.getElementById("sync-result");
+const resultSha = document.getElementById("result-sha");
+const resultPath = document.getElementById("result-path");
+const resultTime = document.getElementById("result-time");
+const resultLink = document.getElementById("result-link");
+
+// History controls
+const historyCard = document.getElementById("history-card");
+const historyList = document.getElementById("history-list");
 
 document.addEventListener("DOMContentLoaded", async () => {
   setupDevModeVisibility();
   await initPopupState();
   await renderActiveProblem();
   await renderLatestSubmission();
+  await renderSyncHistory();
   setupEventListeners();
 });
 
@@ -119,11 +133,21 @@ async function renderActiveProblem() {
 }
 
 /**
- * Reads the latest submission from storage and populates the popup interface.
+ * Reads the latest submission and sync states from storage and populates the popup interface.
  */
 async function renderLatestSubmission() {
-  const data = await chrome.storage.local.get(["latest_submission"]);
+  const data = await chrome.storage.local.get([
+    "latest_submission",
+    "latest_sync",
+    "last_sync",
+    "token",
+    "selectedRepositoryId"
+  ]);
   const submission = data.latest_submission;
+  const token = data.token;
+  const repoId = data.selectedRepositoryId;
+  const lastSync = data.last_sync;
+  const latestSync = data.latest_sync;
 
   if (!submission) {
     submissionCard.classList.add("hidden");
@@ -144,6 +168,40 @@ async function renderLatestSubmission() {
   submissionMemory.textContent = submission.memory || "N/A";
 
   submissionCard.classList.remove("hidden");
+
+  // Determine button state and label based on repository-aware duplicate check
+  let isSynced = false;
+  if (lastSync && lastSync.submission_id === submission.submission_id && lastSync.repository_id === repoId) {
+    isSynced = true;
+  }
+
+  if (isSynced) {
+    submissionStatusText.textContent = "Accepted \u2022 Synced";
+    syncBtn.textContent = "Already Synced";
+    syncBtn.disabled = true;
+  } else {
+    submissionStatusText.textContent = "Accepted \u2022 Ready for Sync";
+    syncBtn.textContent = "Ready to Sync";
+    // Enable only if token, repo, and submission are available
+    syncBtn.disabled = !(token && repoId);
+  }
+
+  // Render Latest Sync Details if applicable
+  if (latestSync && latestSync.status === "completed" && isSynced) {
+    resultSha.textContent = latestSync.commit_sha ? latestSync.commit_sha.substring(0, 7) : "N/A";
+    resultPath.textContent = latestSync.github_file_path || "N/A";
+    resultTime.textContent = latestSync.synced_at ? new Date(latestSync.synced_at).toLocaleString() : "N/A";
+    
+    if (latestSync.commit_url) {
+      resultLink.href = latestSync.commit_url;
+      resultLink.classList.remove("hidden");
+    } else {
+      resultLink.classList.add("hidden");
+    }
+    syncResult.classList.remove("hidden");
+  } else {
+    syncResult.classList.add("hidden");
+  }
 }
 
 /**
@@ -237,6 +295,7 @@ function setupEventListeners() {
         
         // Reload UI state
         await initPopupState();
+        await renderSyncHistory();
       } catch (error) {
         showStatus(`Authentication failed: ${error.message}`, "error");
       }
@@ -249,6 +308,8 @@ function setupEventListeners() {
     if (selectedId) {
       await StorageClient.setSelectedRepositoryId(selectedId);
       showStatus("Repository preference updated.", "success");
+      // Update sync button state
+      await renderLatestSubmission();
       setTimeout(() => showStatus("", ""), 1500);
     }
   });
@@ -277,6 +338,9 @@ function setupEventListeners() {
     showStatus("Logged out successfully.", "success");
   });
 
+  // Sync button click event
+  syncBtn.addEventListener("click", handleSyncClick);
+
   // Task 12 requirement: Subscribe to storage updates to update popup in real-time
   chrome.storage.onChanged.addListener(async (changes, namespace) => {
     if (namespace === "local") {
@@ -288,8 +352,215 @@ function setupEventListeners() {
         console.log("[Popup] Latest submission changed in storage, re-rendering.");
         await renderLatestSubmission();
       }
+      if (changes.latest_sync || changes.last_sync || changes.selectedRepositoryId || changes.token) {
+        console.log("[Popup] Sync state changed in storage, re-rendering.");
+        await renderLatestSubmission();
+      }
+      if (changes.sync_history_cache) {
+        console.log("[Popup] Sync history cache changed, re-rendering.");
+        await renderSyncHistory();
+      }
     }
   });
+}
+
+/**
+ * Handles the solution synchronization flow when Sync is clicked.
+ */
+async function handleSyncClick() {
+  const data = await chrome.storage.local.get([
+    "latest_submission",
+    "selectedRepositoryId",
+    "token"
+  ]);
+  const submission = data.latest_submission;
+  const repoId = data.selectedRepositoryId;
+  const token = data.token;
+
+  if (!submission || !repoId || !token) {
+    showStatus("Missing required fields for synchronization.", "error");
+    return;
+  }
+
+  // Confirmation dialog
+  const repoText = repoSelect.options[repoSelect.selectedIndex]?.text || "Selected Repository";
+  const confirmMessage = `Sync this solution?\n\nProblem: ${submission.problem_title}\nLanguage: ${submission.language}\nRepository: ${repoText}`;
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  // Disable button and change state
+  syncBtn.disabled = true;
+  syncBtn.textContent = "Syncing...";
+  showStatus("Sync in progress...", "");
+
+  const payload = {
+    repository_id: repoId,
+    problem_title: submission.problem_title,
+    problem_slug: submission.problem_slug,
+    difficulty: submission.difficulty.toLowerCase(),
+    language: submission.language,
+    source_code: submission.source_code
+  };
+
+  try {
+    const response = await APIClient.syncLeetCodeSubmission(token, payload);
+    
+    // Save to latest_sync and last_sync
+    const now = Date.now();
+    const latestSyncPayload = {
+      sync_id: response.sync_id,
+      status: response.status,
+      commit_sha: response.commit_sha,
+      commit_url: response.commit_url,
+      github_file_path: response.github_file_path,
+      synced_at: now
+    };
+    
+    const lastSyncPayload = {
+      submission_id: submission.submission_id,
+      repository_id: repoId,
+      synced_at: now
+    };
+
+    await chrome.storage.local.set({
+      latest_sync: latestSyncPayload,
+      last_sync: lastSyncPayload
+    });
+
+    syncBtn.textContent = "\u2713 Synced Successfully";
+    showStatus("Solution synced successfully!", "success");
+
+    // Force clear the history cache to trigger fresh fetch
+    await chrome.storage.local.remove(["sync_history_cache"]);
+    await renderSyncHistory();
+  } catch (error) {
+    console.error("Sync failed:", error);
+    
+    // Handle 409 Conflict specifically as "Already Synced"
+    if (error.status === 409) {
+      const now = Date.now();
+      const lastSyncPayload = {
+        submission_id: submission.submission_id,
+        repository_id: repoId,
+        synced_at: now
+      };
+      await chrome.storage.local.set({ last_sync: lastSyncPayload });
+      
+      syncBtn.textContent = "Already Synced";
+      showStatus("This submission already exists in the selected repository.", "error");
+    } else {
+      syncBtn.textContent = "Sync Failed";
+      showStatus(error.message || "Synchronization failed.", "error");
+      // Enable sync button again so user can retry
+      syncBtn.disabled = false;
+    }
+  }
+}
+
+/**
+ * Fetches and renders user sync history list (caching retrieved history for 5 mins).
+ */
+async function renderSyncHistory() {
+  const token = await StorageClient.getToken();
+  if (!token) {
+    historyCard.classList.add("hidden");
+    return;
+  }
+
+  // Load from cache first
+  const cacheData = await chrome.storage.local.get(["sync_history_cache"]);
+  const cache = cacheData.sync_history_cache;
+  const now = Date.now();
+  const cacheDurationLimit = 5 * 60 * 1000; // 5 minutes
+
+  let historyEntries = null;
+
+  if (cache && (now - cache.fetchedAt < cacheDurationLimit)) {
+    console.log("[Popup] Loading sync history from cache.");
+    historyEntries = cache.entries;
+  } else {
+    console.log("[Popup] Fetching fresh sync history.");
+    try {
+      historyEntries = await APIClient.fetchSyncHistory(token);
+      await chrome.storage.local.set({
+        sync_history_cache: {
+          entries: historyEntries,
+          fetchedAt: now
+        }
+      });
+    } catch (error) {
+      console.warn("Failed to fetch sync history:", error);
+      // If API call fails but we have stale cache, fallback to cache
+      if (cache) {
+        historyEntries = cache.entries;
+      }
+    }
+  }
+
+  if (!historyEntries || historyEntries.length === 0) {
+    historyList.innerHTML = '<div class="history-empty">No recent synchronizations</div>';
+    historyCard.classList.add("hidden");
+    return;
+  }
+
+  // Render top 5
+  const top5 = historyEntries.slice(0, 5);
+  historyList.innerHTML = "";
+  
+  top5.forEach(item => {
+    const itemEl = document.createElement("div");
+    itemEl.className = "history-item";
+    
+    const formattedTime = new Date(item.created_at || item.updated_at).toLocaleString();
+    const statusClass = item.sync_status.toLowerCase(); // completed, failed, running
+    
+    // Left section (details)
+    const leftEl = document.createElement("div");
+    leftEl.className = "history-left";
+    
+    const titleEl = document.createElement("div");
+    titleEl.className = "history-title";
+    titleEl.textContent = item.problem_title;
+    
+    const metaEl = document.createElement("div");
+    metaEl.className = "history-meta";
+    metaEl.textContent = `${item.language.toUpperCase()} \u2022 ${formattedTime}`;
+    
+    leftEl.appendChild(titleEl);
+    leftEl.appendChild(metaEl);
+    
+    // Right section (status & link)
+    const rightEl = document.createElement("div");
+    rightEl.className = "history-right";
+    
+    const badgeEl = document.createElement("span");
+    badgeEl.className = `history-status-badge ${statusClass}`;
+    badgeEl.textContent = item.sync_status;
+    
+    rightEl.appendChild(badgeEl);
+    
+    if (item.commit_url) {
+      const linkEl = document.createElement("a");
+      linkEl.href = item.commit_url;
+      linkEl.target = "_blank";
+      linkEl.className = "history-link-icon";
+      linkEl.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      `;
+      rightEl.appendChild(linkEl);
+    }
+    
+    itemEl.appendChild(leftEl);
+    itemEl.appendChild(rightEl);
+    historyList.appendChild(itemEl);
+  });
+
+  historyCard.classList.remove("hidden");
 }
 
 function showUnauthenticatedState() {
