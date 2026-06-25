@@ -1,0 +1,35 @@
+[tool.black]
+line-length = 88
+target-version = ['py312']
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.nox
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | alembic
+  )/
+)
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "alembic"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []

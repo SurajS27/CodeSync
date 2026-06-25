@@ -82,15 +82,22 @@ function extractSourceCode() {
   // Method 1: Check Monaco DOM lines (textContent)
   const lines = Array.from(document.querySelectorAll(".view-line"));
   if (lines.length > 0) {
-    const code = lines.map(line => line.textContent).join("\n");
+    // Sort lines by their top offset to prevent scrambled lines due to Monaco virtualization
+    lines.sort((a, b) => {
+      const topA = parseFloat(a.style.top) || a.getBoundingClientRect().top;
+      const topB = parseFloat(b.style.top) || b.getBoundingClientRect().top;
+      return topA - topB;
+    });
+
+    let code = lines.map(line => line.textContent).join("\n");
     if (code && code.trim().length > 5) {
-      return code;
+      return code.replace(/\u00a0/g, " ");
     }
     
     // Method 2: Monaco DOM lines (innerText)
-    const codeInner = lines.map(line => line.innerText).join("\n");
+    let codeInner = lines.map(line => line.innerText).join("\n");
     if (codeInner && codeInner.trim().length > 5) {
-      return codeInner;
+      return codeInner.replace(/\u00a0/g, " ");
     }
   }
 
@@ -99,7 +106,7 @@ function extractSourceCode() {
   if (codeEl) {
     const code = codeEl.value || codeEl.textContent || codeEl.innerText;
     if (code && code.trim().length > 5) {
-      return code;
+      return code.replace(/\u00a0/g, " ");
     }
   }
 

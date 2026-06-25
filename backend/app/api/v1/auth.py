@@ -11,6 +11,9 @@ from app.schemas.user import UserCreate
 from app.services.github_oauth_service import GitHubOAuthService
 from app.services.oauth_state_service import OAuthStateService
 from app.services.user_service import UserService
+from app.services.github_repository_service import GitHubRepositoryService
+from app.services.repository_service import RepositoryService
+from app.services.repository_bootstrap_service import RepositoryBootstrapService
 from app.utils.encryption import encrypt_token
 
 logger = logging.getLogger("codesync.api.auth")
@@ -116,6 +119,39 @@ async def github_callback(
         )
         user = await UserService.create_user(db, user_create, encrypted_token)
         logger.info(f"Registered new User account: {user.id} - username: {github_username}")
+        
+        # Auto-provision default repository for new users
+        try:
+            from datetime import datetime
+            default_repo_name = "codesync-solutions"
+            unique_name = await GitHubRepositoryService.generate_unique_repository_name(db, user, default_repo_name)
+            
+            github_data = await GitHubRepositoryService.create_github_repository(
+                user,
+                unique_name,
+                is_private=True
+            )
+            
+            github_created = datetime.fromisoformat(github_data["created_at"].replace("Z", "+00:00"))
+            github_updated = datetime.fromisoformat(github_data["updated_at"].replace("Z", "+00:00"))
+            
+            new_repo_data = {
+                "github_repo_id": github_data["id"],
+                "repo_name": github_data["name"],
+                "repo_full_name": github_data["full_name"],
+                "repo_url": github_data["html_url"],
+                "owner_github_username": github_data["owner"]["login"],
+                "default_branch": github_data["default_branch"],
+                "is_private": github_data["private"],
+                "github_created_at": github_created,
+                "github_updated_at": github_updated
+            }
+            
+            new_repo = await RepositoryService.create_repository_record(db, user.id, new_repo_data)
+            await RepositoryBootstrapService.bootstrap_repository(db, user, new_repo)
+            logger.info(f"Auto-provisioned default repository '{unique_name}' for user {github_username}")
+        except Exception as e:
+            logger.error(f"Failed to auto-provision default repository for new user {github_username}: {str(e)}")
     else:
         # Sync profile information updates and secure token
         user.github_username = github_username

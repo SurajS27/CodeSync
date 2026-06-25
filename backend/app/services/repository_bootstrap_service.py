@@ -55,14 +55,15 @@ class RepositoryBootstrapService:
             # 3. Define files and contents dynamically
             readme_content = (
                 f"# {repo.repo_name}\n\n"
-                "This repository is automatically managed by CodeSync.\n\n"
-                "Supported Platforms:\n\n"
-                "- LeetCode\n"
-                "- HackerRank\n"
-                "- Codeforces\n"
-                "- GeeksForGeeks\n\n"
+                "Welcome to my CodeSync solutions repository!\n\n"
+                "This repository automatically synchronizes my accepted coding challenge submissions from LeetCode to GitHub using the CodeSync Chrome Extension.\n\n"
+                "### How it works\n\n"
+                "1. **Solve**: Complete a challenge on LeetCode.\n"
+                "2. **Detect**: CodeSync automatically captures the accepted submission.\n"
+                "3. **Sync**: The solution code and structured problem description files are committed directly to this repository.\n\n"
+                "---\n"
                 f"Repository Bootstrap Version: {BOOTSTRAP_VERSION}\n\n"
-                "Generated automatically by CodeSync.\n"
+                "Generated automatically using CodeSync.\n"
             )
 
             gitignore_content = (

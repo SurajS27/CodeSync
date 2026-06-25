@@ -7,7 +7,9 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.ENV == "development",
-    future=True
+    future=True,
+    pool_pre_ping=True,
+    pool_recycle=300
 )
 
 # Configure the sessionmaker for AsyncSession
