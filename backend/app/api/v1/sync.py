@@ -1,13 +1,18 @@
 import logging
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.api.deps.auth import get_current_user
 from app.models.user import User
-from app.schemas.sync import LeetCodeSyncRequest, LeetCodeSyncResponse, SyncHistoryResponse
+from app.schemas.sync import (
+    LeetCodeSyncRequest,
+    LeetCodeSyncResponse,
+    SyncHistoryResponse,
+)
 from app.services.leetcode_sync_service import LeetCodeSyncService
 from app.services.sync_history_service import SyncHistoryService
 
@@ -15,11 +20,13 @@ logger = logging.getLogger("codesync.api.sync")
 router = APIRouter()
 
 
-@router.post("/leetcode", response_model=LeetCodeSyncResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/leetcode", response_model=LeetCodeSyncResponse, status_code=status.HTTP_200_OK
+)
 async def sync_leetcode(
     request: LeetCodeSyncRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Synchronizes a solved LeetCode problem submission to the user's provisioned GitHub repository.
 
@@ -32,17 +39,12 @@ async def sync_leetcode(
     )
     try:
         result = await LeetCodeSyncService.sync_leetcode_submission(
-            db=db,
-            user=current_user,
-            request=request
+            db=db, user=current_user, request=request
         )
         return result
     except ValueError as e:
         logger.warning(f"Validation error in sync request: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except IntegrityError as e:
         logger.warning(
             f"Duplicate sync detection: unique constraint violated for repo {request.repository_id}, "
@@ -50,7 +52,7 @@ async def sync_leetcode(
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A synchronization record for this problem and language already exists for this repository."
+            detail="A synchronization record for this problem and language already exists for this repository.",
         )
     except HTTPException:
         # Re-raise FastAPIs HTTPExceptions directly
@@ -59,14 +61,15 @@ async def sync_leetcode(
         logger.error(f"Unexpected error in sync endpoint: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred during synchronization: {str(e)}"
+            detail=f"An error occurred during synchronization: {str(e)}",
         )
 
 
-@router.get("/history", response_model=List[SyncHistoryResponse], status_code=status.HTTP_200_OK)
+@router.get(
+    "/history", response_model=List[SyncHistoryResponse], status_code=status.HTTP_200_OK
+)
 async def get_sync_history(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Retrieves the synchronization history list for the current authenticated user,
 
@@ -74,11 +77,13 @@ async def get_sync_history(
     """
     logger.info(f"Retrieving sync history for user {current_user.github_username}")
     try:
-        history = await SyncHistoryService.get_user_sync_history(db=db, user_id=current_user.id)
+        history = await SyncHistoryService.get_user_sync_history(
+            db=db, user_id=current_user.id
+        )
         return history
     except Exception as e:
         logger.error(f"Error retrieving sync history: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve synchronization history."
+            detail="Failed to retrieve synchronization history.",
         )

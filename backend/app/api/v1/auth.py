@@ -1,19 +1,20 @@
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_db
 from app.api.deps.auth import get_current_user
 from app.core.security import create_access_token, create_oauth_state
 from app.models.user import User
 from app.schemas.auth import AuthenticatedUserResponse, GitHubLoginResponse
-from app.schemas.user import UserResponse
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserResponse
 from app.services.github_oauth_service import GitHubOAuthService
-from app.services.oauth_state_service import OAuthStateService
-from app.services.user_service import UserService
 from app.services.github_repository_service import GitHubRepositoryService
-from app.services.repository_service import RepositoryService
+from app.services.oauth_state_service import OAuthStateService
 from app.services.repository_bootstrap_service import RepositoryBootstrapService
+from app.services.repository_service import RepositoryService
+from app.services.user_service import UserService
 from app.utils.encryption import encrypt_token
 
 logger = logging.getLogger("codesync.api.auth")
@@ -29,18 +30,11 @@ async def github_login():
     state = create_oauth_state()
     authorization_url = GitHubOAuthService.get_authorization_url(state)
     logger.debug(f"Generated OAuth state parameter: {state}")
-    return {
-        "authorization_url": authorization_url,
-        "state": state
-    }
+    return {"authorization_url": authorization_url, "state": state}
 
 
 @router.get("/github/callback", response_model=AuthenticatedUserResponse)
-async def github_callback(
-    code: str,
-    state: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def github_callback(code: str, state: str, db: AsyncSession = Depends(get_db)):
     """Processes the redirect code and state callback from GitHub OAuth provider.
 
     Exchanges authorization code for GitHub access token, retrieves user data,
@@ -51,7 +45,7 @@ async def github_callback(
         logger.warning(f"OAuth state parameter validation failed for state: {state}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSRF validation check failed. OAuth state parameter is invalid or expired."
+            detail="CSRF validation check failed. OAuth state parameter is invalid or expired.",
         )
 
     # 2. Token exchange with GitHub OAuth
@@ -61,13 +55,13 @@ async def github_callback(
         logger.error(f"GitHub token exchange logic failure: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"GitHub token exchange returned error details: {str(e)}"
+            detail=f"GitHub token exchange returned error details: {str(e)}",
         )
     except Exception as e:
         logger.error(f"GitHub connection failure during token exchange: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to establish connection to GitHub servers."
+            detail="Unable to establish connection to GitHub servers.",
         )
 
     # 3. Retrieve user profile
@@ -77,7 +71,7 @@ async def github_callback(
         logger.error(f"GitHub profile retrieval failure: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch profile details from GitHub API: {str(e)}"
+            detail=f"Failed to fetch profile details from GitHub API: {str(e)}",
         )
 
     github_id = str(profile.get("id"))
@@ -89,12 +83,14 @@ async def github_callback(
         logger.error("GitHub profile response is missing unique id or username fields.")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="GitHub profile response is missing essential identifiers."
+            detail="GitHub profile response is missing essential identifiers.",
         )
 
     # 4. Fetch email fallback if hidden
     if not github_email:
-        logger.info(f"Primary email is null for github user {github_username}, querying secondary list...")
+        logger.info(
+            f"Primary email is null for github user {github_username}, querying secondary list..."
+        )
         github_email = await GitHubOAuthService.fetch_github_primary_email(github_token)
 
     # 5. Encrypt access token before persisting in database
@@ -104,7 +100,7 @@ async def github_callback(
         logger.error(f"Token encryption failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to securely persist user authorization token."
+            detail="Failed to securely persist user authorization token.",
         )
 
     # 6. Locate or create User database records
@@ -115,26 +111,33 @@ async def github_callback(
             github_username=github_username,
             github_email=github_email,
             github_avatar_url=github_avatar_url,
-            is_active=True
+            is_active=True,
         )
         user = await UserService.create_user(db, user_create, encrypted_token)
-        logger.info(f"Registered new User account: {user.id} - username: {github_username}")
-        
+        logger.info(
+            f"Registered new User account: {user.id} - username: {github_username}"
+        )
+
         # Auto-provision default repository for new users
         try:
             from datetime import datetime
+
             default_repo_name = "codesync-solutions"
-            unique_name = await GitHubRepositoryService.generate_unique_repository_name(db, user, default_repo_name)
-            
-            github_data = await GitHubRepositoryService.create_github_repository(
-                user,
-                unique_name,
-                is_private=True
+            unique_name = await GitHubRepositoryService.generate_unique_repository_name(
+                db, user, default_repo_name
             )
-            
-            github_created = datetime.fromisoformat(github_data["created_at"].replace("Z", "+00:00"))
-            github_updated = datetime.fromisoformat(github_data["updated_at"].replace("Z", "+00:00"))
-            
+
+            github_data = await GitHubRepositoryService.create_github_repository(
+                user, unique_name, is_private=True
+            )
+
+            github_created = datetime.fromisoformat(
+                github_data["created_at"].replace("Z", "+00:00")
+            )
+            github_updated = datetime.fromisoformat(
+                github_data["updated_at"].replace("Z", "+00:00")
+            )
+
             new_repo_data = {
                 "github_repo_id": github_data["id"],
                 "repo_name": github_data["name"],
@@ -144,14 +147,20 @@ async def github_callback(
                 "default_branch": github_data["default_branch"],
                 "is_private": github_data["private"],
                 "github_created_at": github_created,
-                "github_updated_at": github_updated
+                "github_updated_at": github_updated,
             }
-            
-            new_repo = await RepositoryService.create_repository_record(db, user.id, new_repo_data)
+
+            new_repo = await RepositoryService.create_repository_record(
+                db, user.id, new_repo_data
+            )
             await RepositoryBootstrapService.bootstrap_repository(db, user, new_repo)
-            logger.info(f"Auto-provisioned default repository '{unique_name}' for user {github_username}")
+            logger.info(
+                f"Auto-provisioned default repository '{unique_name}' for user {github_username}"
+            )
         except Exception as e:
-            logger.error(f"Failed to auto-provision default repository for new user {github_username}: {str(e)}")
+            logger.error(
+                f"Failed to auto-provision default repository for new user {github_username}: {str(e)}"
+            )
     else:
         # Sync profile information updates and secure token
         user.github_username = github_username
@@ -166,11 +175,7 @@ async def github_callback(
     # 7. Issue application JWT access token
     jwt_token = create_access_token(user_id=str(user.id), github_id=github_id)
 
-    return {
-        "access_token": jwt_token,
-        "token_type": "bearer",
-        "user": user
-    }
+    return {"access_token": jwt_token, "token_type": "bearer", "user": user}
 
 
 @router.get("/me", response_model=UserResponse)

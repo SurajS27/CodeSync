@@ -11,11 +11,13 @@ class PathGenerationService:
         "c": "solution.c",
         "go": "solution.go",
         "rust": "solution.rs",
-        "csharp": "Solution.cs"
+        "csharp": "Solution.cs",
     }
 
     @staticmethod
-    def generate_problem_directory(platform: str, difficulty: str, problem_slug: str) -> str:
+    def generate_problem_directory(
+        platform: str, difficulty: str, problem_slug: str
+    ) -> str:
         """Generates the folder directory structure for a challenge submission."""
         clean_platform = platform.strip().lower()
         clean_difficulty = difficulty.strip().lower()

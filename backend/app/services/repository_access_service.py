@@ -1,7 +1,9 @@
-import uuid
 import logging
+import uuid
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.repository import Repository
 from app.services.repository_service import RepositoryService
 
@@ -13,9 +15,7 @@ class RepositoryAccessService:
 
     @staticmethod
     async def verify_repository_owner(
-        db: AsyncSession,
-        user_id: uuid.UUID,
-        repository_id: uuid.UUID
+        db: AsyncSession, user_id: uuid.UUID, repository_id: uuid.UUID
     ) -> Repository:
         """Loads a repository and checks if the given user owns it.
 
@@ -23,21 +23,27 @@ class RepositoryAccessService:
         - HTTP 404: If the repository doesn't exist.
         - HTTP 403: If the user does not own it.
         """
-        logger.debug(f"Verifying ownership of repository: {repository_id} for user: {user_id}")
+        logger.debug(
+            f"Verifying ownership of repository: {repository_id} for user: {user_id}"
+        )
         repo = await RepositoryService.get_repository_by_id(db, repository_id)
 
         if not repo:
-            logger.warning(f"Access verification failed: Repository not found: {repository_id}")
+            logger.warning(
+                f"Access verification failed: Repository not found: {repository_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="The requested repository was not found."
+                detail="The requested repository was not found.",
             )
 
         if repo.user_id != user_id:
-            logger.warning(f"Access violation: User: {user_id} attempted to access repository: {repository_id}")
+            logger.warning(
+                f"Access violation: User: {user_id} attempted to access repository: {repository_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this repository."
+                detail="You do not have permission to access this repository.",
             )
 
         return repo
