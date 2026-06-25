@@ -1,5 +1,6 @@
 import logging
 import sys
+
 from app.core.config import settings
 
 logger = logging.getLogger("codesync")
@@ -31,7 +32,12 @@ def setup_logging() -> None:
     root_logger.setLevel(log_level)
 
     # Apply configuration to third-party loggers
-    for lib_logger_name in ["uvicorn", "uvicorn.error", "uvicorn.access", "sqlalchemy.engine"]:
+    for lib_logger_name in [
+        "uvicorn",
+        "uvicorn.error",
+        "uvicorn.access",
+        "sqlalchemy.engine",
+    ]:
         lib_logger = logging.getLogger(lib_logger_name)
         lib_logger.handlers = []
         lib_logger.addHandler(handler)
@@ -41,11 +47,18 @@ def setup_logging() -> None:
 
 def log_startup() -> None:
     """Log startup status of the application."""
-    logger.info("Initializing CodeSync API backend foundation...", extra={"metadata": "startup"})
+    logger.info(
+        "Initializing CodeSync API backend foundation...", extra={"metadata": "startup"}
+    )
     logger.info(f"Environment: {settings.ENV}", extra={"metadata": "startup"})
-    logger.info(f"Log Level set to: {settings.LOG_LEVEL}", extra={"metadata": "startup"})
+    logger.info(
+        f"Log Level set to: {settings.LOG_LEVEL}", extra={"metadata": "startup"}
+    )
 
 
 def log_shutdown() -> None:
     """Log shutdown status of the application."""
-    logger.info("Shutting down CodeSync API backend gracefully...", extra={"metadata": "shutdown"})
+    logger.info(
+        "Shutting down CodeSync API backend gracefully...",
+        extra={"metadata": "shutdown"},
+    )

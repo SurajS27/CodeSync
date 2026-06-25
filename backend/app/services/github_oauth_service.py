@@ -1,7 +1,9 @@
 import logging
 from urllib.parse import urlencode
+
 import httpx
 from fastapi import HTTPException
+
 from app.core.config import settings
 
 logger = logging.getLogger("codesync.services.github_oauth")
@@ -16,7 +18,7 @@ class GitHubOAuthService:
         params = {
             "client_id": settings.GITHUB_CLIENT_ID,
             "scope": "repo read:user user:email",
-            "state": state
+            "state": state,
         }
         return f"https://github.com/login/oauth/authorize?{urlencode(params)}"
 
@@ -28,21 +30,25 @@ class GitHubOAuthService:
         data = {
             "client_id": settings.GITHUB_CLIENT_ID,
             "client_secret": settings.GITHUB_CLIENT_SECRET,
-            "code": code
+            "code": code,
         }
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, headers=headers, data=data)
             if response.status_code != 200:
-                logger.error(f"GitHub token exchange returned status {response.status_code}: {response.text}")
+                logger.error(
+                    f"GitHub token exchange returned status {response.status_code}: {response.text}"
+                )
                 raise HTTPException(
                     status_code=502,
-                    detail="Failed to authenticate with GitHub OAuth provider."
+                    detail="Failed to authenticate with GitHub OAuth provider.",
                 )
 
             res_data = response.json()
             if "error" in res_data:
-                logger.error(f"GitHub token exchange response error: {res_data['error']} - {res_data.get('error_description')}")
+                logger.error(
+                    f"GitHub token exchange response error: {res_data['error']} - {res_data.get('error_description')}"
+                )
                 raise ValueError(res_data.get("error_description", res_data["error"]))
 
             access_token = res_data.get("access_token")
@@ -59,16 +65,18 @@ class GitHubOAuthService:
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
-            "User-Agent": "CodeSync-Backend"
+            "User-Agent": "CodeSync-Backend",
         }
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url, headers=headers)
             if response.status_code != 200:
-                logger.error(f"Failed to fetch GitHub profile. Status: {response.status_code} - Response: {response.text}")
+                logger.error(
+                    f"Failed to fetch GitHub profile. Status: {response.status_code} - Response: {response.text}"
+                )
                 raise HTTPException(
                     status_code=502,
-                    detail="Failed to retrieve profile data from GitHub."
+                    detail="Failed to retrieve profile data from GitHub.",
                 )
             return response.json()
 
@@ -79,13 +87,15 @@ class GitHubOAuthService:
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
-            "User-Agent": "CodeSync-Backend"
+            "User-Agent": "CodeSync-Backend",
         }
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url, headers=headers)
             if response.status_code != 200:
-                logger.warning(f"Failed to fetch email list from GitHub. Status: {response.status_code}")
+                logger.warning(
+                    f"Failed to fetch email list from GitHub. Status: {response.status_code}"
+                )
                 return None
 
             emails = response.json()

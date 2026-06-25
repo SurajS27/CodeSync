@@ -13,8 +13,20 @@ const userEmail = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const statusMsg = document.getElementById("status-msg");
 
+// Diagnostics DOM Elements
+const statsTotal = document.getElementById("stats-total");
+const statsSuccess = document.getElementById("stats-success");
+const statsFailed = document.getElementById("stats-failed");
+const logCount = document.getElementById("log-count");
+const lastEventText = document.getElementById("last-event-text");
+const viewLogsBtn = document.getElementById("view-logs-btn");
+const clearLogsBtn = document.getElementById("clear-logs-btn");
+const logsViewerBox = document.getElementById("logs-viewer-box");
+const logsList = document.getElementById("logs-list");
+
 document.addEventListener("DOMContentLoaded", async () => {
   await initOptionsState();
+  await renderDiagnostics();
   setupEventListeners();
 });
 
@@ -145,6 +157,94 @@ function setupEventListeners() {
     await StorageClient.clearAll();
     hideAuthenticatedOptions();
     showToast("Successfully logged out and session cleared.", "success");
+  });
+
+  // View Logs button handler
+  viewLogsBtn.addEventListener("click", () => {
+    const isHidden = logsViewerBox.classList.contains("hidden");
+    if (isHidden) {
+      chrome.storage.local.get(["debug_logs"], (result) => {
+        const logs = result.debug_logs || [];
+        logsList.innerHTML = "";
+        if (logs.length === 0) {
+          logsList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 12px 0;">No diagnostic logs stored.</div>';
+        } else {
+          logs.forEach((log) => {
+            const row = document.createElement("div");
+            row.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+            row.style.padding = "6px 0";
+            row.style.display = "flex";
+            row.style.flexDirection = "column";
+            
+            const meta = document.createElement("div");
+            meta.style.display = "flex";
+            meta.style.justifyContent = "space-between";
+            meta.style.color = "var(--text-muted)";
+            meta.style.fontSize = "10px";
+            
+            let color = "var(--text-secondary)";
+            if (log.level === "error") color = "var(--danger-color)";
+            else if (log.level === "warning") color = "#f59e0b";
+            else if (log.level === "info") color = "var(--success-color)";
+            
+            meta.innerHTML = `<span>${new Date(log.timestamp).toLocaleTimeString()} &bull; <strong style="color: ${color};">${log.level.toUpperCase()}</strong> &bull; [${log.tag}]</span>`;
+            
+            const msg = document.createElement("div");
+            msg.style.wordBreak = "break-all";
+            msg.style.marginTop = "2px";
+            msg.style.color = "var(--text-primary)";
+            msg.textContent = log.message;
+            
+            row.appendChild(meta);
+            row.appendChild(msg);
+            logsList.appendChild(row);
+          });
+        }
+        logsViewerBox.classList.remove("hidden");
+        viewLogsBtn.textContent = "Hide Logs";
+      });
+    } else {
+      logsViewerBox.classList.add("hidden");
+      viewLogsBtn.textContent = "View Logs";
+    }
+  });
+
+  // Clear Logs button handler
+  clearLogsBtn.addEventListener("click", async () => {
+    if (confirm("Are you sure you want to clear all diagnostic logs?")) {
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ debug_logs: [] }, () => resolve());
+      });
+      showToast("Diagnostic logs cleared.", "success");
+      await renderDiagnostics();
+      logsList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 12px 0;">No diagnostic logs stored.</div>';
+    }
+  });
+}
+
+/**
+ * Loads and displays synchronization stats and diagnostic logging info.
+ */
+async function renderDiagnostics() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["sync_stats", "debug_logs"], (result) => {
+      const stats = result.sync_stats || { total_syncs: 0, successful_syncs: 0, failed_syncs: 0 };
+      statsTotal.textContent = stats.total_syncs;
+      statsSuccess.textContent = stats.successful_syncs;
+      statsFailed.textContent = stats.failed_syncs;
+
+      const logs = result.debug_logs || [];
+      logCount.textContent = logs.length;
+      if (logs.length > 0) {
+        const last = logs[0];
+        lastEventText.textContent = `[${last.level.toUpperCase()}] ${last.message}`;
+        lastEventText.title = `[${last.level.toUpperCase()}] ${last.message} (${new Date(last.timestamp).toLocaleTimeString()})`;
+      } else {
+        lastEventText.textContent = "None";
+        lastEventText.title = "";
+      }
+      resolve();
+    });
   });
 }
 

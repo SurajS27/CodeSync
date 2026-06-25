@@ -109,39 +109,43 @@ function getDifficulty() {
  * Performs extraction and communicates changes to the background script.
  */
 function extractAndNotify() {
-  if (!shouldProcessPage()) return;
+  try {
+    if (!shouldProcessPage()) return;
 
-  const slug = getSlug();
-  const title = getTitle();
-  const difficulty = getDifficulty();
-  const url = window.location.href;
+    const slug = getSlug();
+    const title = getTitle();
+    const difficulty = getDifficulty();
+    const url = window.location.href;
 
-  // Task 5 validation: ensure all elements are present before saving
-  if (!title || !slug || !difficulty) {
-    return;
-  }
-
-  // Prevent sending duplicate messages if nothing has changed
-  if (slug === lastSlug && title === lastTitle && url === lastUrl) {
-    return;
-  }
-
-  lastSlug = slug;
-  lastTitle = title;
-  lastUrl = url;
-
-  const payload = {
-    type: "PROBLEM_DETECTED",
-    data: {
-      title,
-      slug,
-      difficulty,
-      url
+    // Task 5 validation: ensure all elements are present before saving
+    if (!title || !slug || !difficulty) {
+      return;
     }
-  };
 
-  console.log("[CodeSync Detection Engine] Dispatching metadata:", payload.data);
-  chrome.runtime.sendMessage(payload);
+    // Prevent sending duplicate messages if nothing has changed
+    if (slug === lastSlug && title === lastTitle && url === lastUrl) {
+      return;
+    }
+
+    lastSlug = slug;
+    lastTitle = title;
+    lastUrl = url;
+
+    const payload = {
+      type: "PROBLEM_DETECTED",
+      data: {
+        title,
+        slug,
+        difficulty,
+        url
+      }
+    };
+
+    console.log("[CodeSync Detection Engine] Dispatching metadata:", payload.data);
+    chrome.runtime.sendMessage(payload);
+  } catch (error) {
+    console.error("[CodeSync Detection Engine] Error during metadata extraction:", error);
+  }
 }
 
 // 1. MutationObserver to handle Single Page Application (SPA) DOM state transitions

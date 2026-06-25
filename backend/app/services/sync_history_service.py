@@ -1,10 +1,12 @@
 import uuid
-from typing import Sequence, Optional
 from datetime import datetime, timezone
+from typing import Optional, Sequence
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.sync_history import SyncHistory
+
 from app.models.enums import SyncStatus
+from app.models.sync_history import SyncHistory
 
 
 class SyncHistoryService:
@@ -19,7 +21,7 @@ class SyncHistoryService:
         problem_slug: str,
         difficulty: str,
         language: str,
-        platform: str = "leetcode"
+        platform: str = "leetcode",
     ) -> SyncHistory:
         """Initializes a new synchronization audit record with PENDING status."""
         record = SyncHistory(
@@ -30,7 +32,7 @@ class SyncHistoryService:
             problem_slug=problem_slug,
             difficulty=difficulty.lower(),
             language=language.lower(),
-            sync_status=SyncStatus.PENDING
+            sync_status=SyncStatus.PENDING,
         )
         db.add(record)
         await db.commit()
@@ -46,7 +48,7 @@ class SyncHistoryService:
         commit_url: Optional[str] = None,
         repository_path: Optional[str] = None,
         github_file_path: Optional[str] = None,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
     ) -> SyncHistory:
         """Updates synchronization status, commit metadata, or logs error details on failure."""
         result = await db.execute(select(SyncHistory).where(SyncHistory.id == sync_id))
@@ -76,8 +78,7 @@ class SyncHistoryService:
 
     @staticmethod
     async def get_user_sync_history(
-        db: AsyncSession,
-        user_id: uuid.UUID
+        db: AsyncSession, user_id: uuid.UUID
     ) -> Sequence[SyncHistory]:
         """Retrieves all synchronization history records for a User ordered by creation date descending."""
         result = await db.execute(
@@ -89,8 +90,7 @@ class SyncHistoryService:
 
     @staticmethod
     async def get_sync_by_id(
-        db: AsyncSession,
-        sync_id: uuid.UUID
+        db: AsyncSession, sync_id: uuid.UUID
     ) -> Optional[SyncHistory]:
         """Fetches a specific synchronization history record by unique identifier."""
         result = await db.execute(select(SyncHistory).where(SyncHistory.id == sync_id))

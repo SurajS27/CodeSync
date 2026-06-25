@@ -1,7 +1,9 @@
-import uuid
 import logging
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user import User
 from app.schemas.user import UserCreate
 
@@ -29,7 +31,7 @@ class UserService:
     async def create_user(
         db: AsyncSession,
         user_in: UserCreate,
-        github_access_token_encrypted: str | None = None
+        github_access_token_encrypted: str | None = None,
     ) -> User:
         """Create and store a new User database entry from registration info."""
         logger.info(f"Creating user profile for GitHub user: {user_in.github_username}")
@@ -38,9 +40,11 @@ class UserService:
             github_id=user_in.github_id,
             github_username=user_in.github_username,
             github_email=user_in.github_email,
-            github_avatar_url=str(user_in.github_avatar_url) if user_in.github_avatar_url else None,
+            github_avatar_url=(
+                str(user_in.github_avatar_url) if user_in.github_avatar_url else None
+            ),
             github_access_token_encrypted=github_access_token_encrypted,
-            is_active=user_in.is_active
+            is_active=user_in.is_active,
         )
         db.add(db_user)
         await db.commit()
@@ -49,9 +53,7 @@ class UserService:
 
     @staticmethod
     async def update_github_access_token(
-        db: AsyncSession,
-        user_id: uuid.UUID,
-        github_access_token_encrypted: str
+        db: AsyncSession, user_id: uuid.UUID, github_access_token_encrypted: str
     ) -> User | None:
         """Update the stored OAuth token for a specific user."""
         logger.info(f"Updating GitHub access token for user ID: {user_id}")

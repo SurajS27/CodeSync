@@ -82,15 +82,22 @@ function extractSourceCode() {
   // Method 1: Check Monaco DOM lines (textContent)
   const lines = Array.from(document.querySelectorAll(".view-line"));
   if (lines.length > 0) {
-    const code = lines.map(line => line.textContent).join("\n");
+    // Sort lines by their top offset to prevent scrambled lines due to Monaco virtualization
+    lines.sort((a, b) => {
+      const topA = parseFloat(a.style.top) || a.getBoundingClientRect().top;
+      const topB = parseFloat(b.style.top) || b.getBoundingClientRect().top;
+      return topA - topB;
+    });
+
+    let code = lines.map(line => line.textContent).join("\n");
     if (code && code.trim().length > 5) {
-      return code;
+      return code.replace(/\u00a0/g, " ");
     }
     
     // Method 2: Monaco DOM lines (innerText)
-    const codeInner = lines.map(line => line.innerText).join("\n");
+    let codeInner = lines.map(line => line.innerText).join("\n");
     if (codeInner && codeInner.trim().length > 5) {
-      return codeInner;
+      return codeInner.replace(/\u00a0/g, " ");
     }
   }
 
@@ -99,7 +106,7 @@ function extractSourceCode() {
   if (codeEl) {
     const code = codeEl.value || codeEl.textContent || codeEl.innerText;
     if (code && code.trim().length > 5) {
-      return code;
+      return code.replace(/\u00a0/g, " ");
     }
   }
 
@@ -242,88 +249,92 @@ function isAcceptedStatusVisible() {
  * Main parser: gathers all payload variables, validates them, and transmits to background.
  */
 async function processSubmission() {
-  const isAccepted = isAcceptedStatusVisible();
-  const subDetails = getSubmissionDetails();
+  try {
+    const isAccepted = isAcceptedStatusVisible();
+    const subDetails = getSubmissionDetails();
 
-  console.log("[CodeSync Debug] Checking submission page:", {
-    url: window.location.href,
-    isAcceptedStatusVisible: isAccepted,
-    submissionDetails: subDetails
-  });
+    console.log("[CodeSync Debug] Checking submission page:", {
+      url: window.location.href,
+      isAcceptedStatusVisible: isAccepted,
+      submissionDetails: subDetails
+    });
 
-  // 1. Confirm "Accepted" text is present
-  if (!isAccepted) return;
+    // 1. Confirm "Accepted" text is present
+    if (!isAccepted) return;
 
-  // 2. Extract submission ID and details
-  if (!subDetails) {
-    console.log("[CodeSync Debug] No submission details extracted.");
-    return;
-  }
+    // 2. Extract submission ID and details
+    if (!subDetails) {
+      console.log("[CodeSync Debug] No submission details extracted.");
+      return;
+    }
 
-  // 3. Gather code, language, and performance metrics
-  const sourceCode = extractSourceCode();
-  const language = getLanguage();
-  const { runtime, memory } = getMetrics();
+    // 3. Gather code, language, and performance metrics
+    const sourceCode = extractSourceCode();
+    const language = getLanguage();
+    const { runtime, memory } = getMetrics();
 
-  // Prevent duplicate runs on the same submission ID with identical metrics
-  if (
-    subDetails.id === lastProcessedSubmissionId &&
-    runtime === lastProcessedRuntime &&
-    memory === lastProcessedMemory
-  ) {
-    return;
-  }
+    // Prevent duplicate runs on the same submission ID with identical metrics
+    if (
+      subDetails.id === lastProcessedSubmissionId &&
+      runtime === lastProcessedRuntime &&
+      memory === lastProcessedMemory
+    ) {
+      return;
+    }
 
-  // 4. Retrieve problem details (slug, title, difficulty)
-  const problemMeta = await getSavedProblemMeta();
+    // 4. Retrieve problem details (slug, title, difficulty)
+    const problemMeta = await getSavedProblemMeta();
 
-  console.log("[CodeSync Debug] Extracted payload parts:", {
-    sourceCodeLength: sourceCode ? sourceCode.length : 0,
-    language: language,
-    runtime: runtime,
-    memory: memory,
-    problemMeta: problemMeta
-  });
-
-  if (!problemMeta) {
-    console.log("[CodeSync Debug] No saved problem metadata found in storage.");
-    return;
-  }
-
-  // 5. Validation Check: Reject incomplete payloads
-  if (!sourceCode || sourceCode.length <= 5 || !language || !subDetails.id) {
-    console.warn("[CodeSync Debug] Validation failed. Missing fields: " + JSON.stringify({
-      hasSourceCode: !!sourceCode,
+    console.log("[CodeSync Debug] Extracted payload parts:", {
       sourceCodeLength: sourceCode ? sourceCode.length : 0,
       language: language,
-      submissionId: subDetails.id
-    }));
-    return;
-  }
-
-  lastProcessedSubmissionId = subDetails.id;
-  lastProcessedRuntime = runtime;
-  lastProcessedMemory = memory;
-
-  const payload = {
-    type: "SUBMISSION_DETECTED",
-    data: {
-      platform: "leetcode",
-      problem_title: problemMeta.title,
-      problem_slug: problemMeta.slug,
-      difficulty: problemMeta.difficulty,
-      status: "accepted",
-      language: language,
-      source_code: sourceCode,
-      submission_id: subDetails.id,
-      submission_url: subDetails.url,
       runtime: runtime,
-      memory: memory
-    }
-  };
+      memory: memory,
+      problemMeta: problemMeta
+    });
 
-  console.log("[CodeSync Submission Detector] Dispatching payload:", payload.data);
-  chrome.runtime.sendMessage(payload);
+    if (!problemMeta) {
+      console.log("[CodeSync Debug] No saved problem metadata found in storage.");
+      return;
+    }
+
+    // 5. Validation Check: Reject incomplete payloads
+    if (!sourceCode || sourceCode.length <= 5 || !language || !subDetails.id) {
+      console.warn("[CodeSync Debug] Validation failed. Missing fields: " + JSON.stringify({
+        hasSourceCode: !!sourceCode,
+        sourceCodeLength: sourceCode ? sourceCode.length : 0,
+        language: language,
+        submissionId: subDetails.id
+      }));
+      return;
+    }
+
+    lastProcessedSubmissionId = subDetails.id;
+    lastProcessedRuntime = runtime;
+    lastProcessedMemory = memory;
+
+    const payload = {
+      type: "SUBMISSION_DETECTED",
+      data: {
+        platform: "leetcode",
+        problem_title: problemMeta.title,
+        problem_slug: problemMeta.slug,
+        difficulty: problemMeta.difficulty,
+        status: "accepted",
+        language: language,
+        source_code: sourceCode,
+        submission_id: subDetails.id,
+        submission_url: subDetails.url,
+        runtime: runtime,
+        memory: memory
+      }
+    };
+
+    console.log("[CodeSync Submission Detector] Dispatching payload:", payload.data);
+    chrome.runtime.sendMessage(payload);
+  } catch (error) {
+    console.error("[CodeSync Submission Detector] Error during submission processing:", error);
+  }
 }
 
 // 1. Setup MutationObserver to watch result card states

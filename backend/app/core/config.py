@@ -1,13 +1,11 @@
-from typing_extensions import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing_extensions import Self
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     # App General Settings
@@ -46,6 +44,7 @@ class Settings(BaseSettings):
             return v
         try:
             from cryptography.fernet import Fernet
+
             # Test key validity by initializing Fernet
             Fernet(v.encode())
         except Exception as e:
@@ -59,10 +58,12 @@ class Settings(BaseSettings):
                 "SECRET_KEY": self.SECRET_KEY,
                 "ENCRYPTION_KEY": self.ENCRYPTION_KEY,
                 "GITHUB_CLIENT_ID": self.GITHUB_CLIENT_ID,
-                "GITHUB_CLIENT_SECRET": self.GITHUB_CLIENT_SECRET
+                "GITHUB_CLIENT_SECRET": self.GITHUB_CLIENT_SECRET,
             }
             for key, val in required_keys.items():
-                if not val or any(x in val.lower() for x in ["placeholder", "your_", "mock_", "dev_"]):
+                if not val or any(
+                    x in val.lower() for x in ["placeholder", "your_", "mock_", "dev_"]
+                ):
                     raise ValueError(
                         f"In production mode, {key} must be set to a valid secure key (cannot be empty or placeholder)."
                     )

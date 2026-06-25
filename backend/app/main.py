@@ -1,12 +1,13 @@
-import sys
 import asyncio
+import sys
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.core.logging import log_startup, log_shutdown, setup_logging
-from app.core.middleware import RequestLoggingMiddleware
+
 from app.api.router import api_router
+from app.core.logging import log_shutdown, log_startup, setup_logging
+from app.core.middleware import RequestLoggingMiddleware
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -28,7 +29,7 @@ app = FastAPI(
     title="CodeSync API",
     description="Backend API for automatically synchronizing accepted coding challenge submissions to GitHub",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS Configuration

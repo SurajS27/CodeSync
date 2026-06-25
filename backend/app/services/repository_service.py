@@ -1,7 +1,9 @@
-import uuid
 import logging
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.repository import Repository
 
 logger = logging.getLogger("codesync.services.repository")
@@ -11,26 +13,31 @@ class RepositoryService:
     """Service layer class handling database CRUD operations for the Repository entity."""
 
     @staticmethod
-    async def get_repository_by_id(db: AsyncSession, repo_id: uuid.UUID) -> Repository | None:
+    async def get_repository_by_id(
+        db: AsyncSession, repo_id: uuid.UUID
+    ) -> Repository | None:
         """Fetch a repository record by its primary key ID."""
         logger.debug(f"Fetching repository by ID: {repo_id}")
         result = await db.execute(select(Repository).where(Repository.id == repo_id))
         return result.scalars().first()
 
     @staticmethod
-    async def get_repository_by_name(db: AsyncSession, user_id: uuid.UUID, repo_name: str) -> Repository | None:
+    async def get_repository_by_name(
+        db: AsyncSession, user_id: uuid.UUID, repo_name: str
+    ) -> Repository | None:
         """Fetch a repository record by user ownership and name (Unique constraint checks)."""
         logger.debug(f"Fetching repository by name: {repo_name} for user: {user_id}")
         result = await db.execute(
             select(Repository).where(
-                Repository.user_id == user_id,
-                Repository.repo_name == repo_name
+                Repository.user_id == user_id, Repository.repo_name == repo_name
             )
         )
         return result.scalars().first()
 
     @staticmethod
-    async def get_user_repositories(db: AsyncSession, user_id: uuid.UUID) -> list[Repository]:
+    async def get_user_repositories(
+        db: AsyncSession, user_id: uuid.UUID
+    ) -> list[Repository]:
         """Fetch all repository records associated with a specific user."""
         logger.debug(f"Fetching all repositories for user: {user_id}")
         result = await db.execute(
@@ -40,12 +47,12 @@ class RepositoryService:
 
     @staticmethod
     async def create_repository_record(
-        db: AsyncSession,
-        user_id: uuid.UUID,
-        repo_data: dict
+        db: AsyncSession, user_id: uuid.UUID, repo_data: dict
     ) -> Repository:
         """Inserts a new repository metadata record into the database."""
-        logger.info(f"Creating repository metadata record for name: {repo_data.get('repo_name')}")
+        logger.info(
+            f"Creating repository metadata record for name: {repo_data.get('repo_name')}"
+        )
         db_repo = Repository(
             user_id=user_id,
             github_repo_id=repo_data["github_repo_id"],
@@ -56,7 +63,7 @@ class RepositoryService:
             default_branch=repo_data["default_branch"],
             is_private=repo_data["is_private"],
             github_created_at=repo_data.get("github_created_at"),
-            github_updated_at=repo_data.get("github_updated_at")
+            github_updated_at=repo_data.get("github_updated_at"),
         )
         db.add(db_repo)
         await db.commit()
@@ -65,9 +72,7 @@ class RepositoryService:
 
     @staticmethod
     async def update_repository_record(
-        db: AsyncSession,
-        repo_id: uuid.UUID,
-        update_data: dict
+        db: AsyncSession, repo_id: uuid.UUID, update_data: dict
     ) -> Repository | None:
         """Updates an existing repository record with new settings/metadata."""
         logger.info(f"Updating repository record: {repo_id}")

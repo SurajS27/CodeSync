@@ -1,10 +1,24 @@
+import { Logger } from "../scripts/logger.js";
+
 /**
  * CodeSync Background Service Worker
  * Coordinates solution detection state, tab focus states, and action badges.
  */
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   console.log("CodeSync Extension (v0.7.0) successfully installed/reloaded.");
+  await Logger.logInfo("startup", "CodeSync Extension successfully installed/reloaded.");
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  console.log("CodeSync Extension startup event triggered.");
+  await Logger.logInfo("startup", "CodeSync Extension startup event triggered.");
+  chrome.storage.local.get(["pending_syncs"], async (result) => {
+    const queue = result.pending_syncs || [];
+    const msg = `${queue.length} pending syncs waiting for manual recovery.`;
+    console.log(`[Background] ${msg}`);
+    await Logger.logInfo("sync", msg);
+  });
 });
 
 // Helper: Checks if a URL represents a LeetCode problem description page
@@ -80,6 +94,12 @@ async function handleTabStateChange(tab) {
 
 // 1. Message Broker: Listens for dispatches from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "FOCUS_POPUP") {
+    if (chrome.action && typeof chrome.action.openPopup === "function") {
+      chrome.action.openPopup().catch(err => console.debug("openPopup failed:", err));
+    }
+  }
+
   if (message.type === "PROBLEM_DETECTED") {
     const { title, slug, difficulty, url } = message.data;
     const tabId = sender.tab ? sender.tab.id : null;
@@ -92,6 +112,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     chrome.storage.local.set(storagePayload, () => {
       console.log(`[Background] Saved active problem: "${title}" (${difficulty})`);
+      Logger.logInfo("detection", `Problem detected: ${title} (${difficulty})`);
       // Update badge immediately if the message is from the active tab
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0] && tabs[0].id === tabId) {
@@ -151,6 +172,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         chrome.storage.local.set(payloadToStore, () => {
           console.log(`[Background] Stored/Updated latest submission ID ${submission.submission_id} for "${submission.problem_title}"`);
+          Logger.logInfo("detection", `Submission detected for "${submission.problem_title}" (ID: ${submission.submission_id})`);
         });
       });
     } else {

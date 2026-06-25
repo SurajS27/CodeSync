@@ -1,6 +1,7 @@
 import { StorageClient } from "../scripts/storage.js";
 import { StateManager } from "../scripts/state.js";
 import { APIClient } from "../scripts/api.js";
+import { Logger } from "../scripts/logger.js";
 
 // Toggle Developer Mode manual token entry UI
 const DEV_MODE = true;
@@ -19,6 +20,9 @@ const repoSelect = document.getElementById("repo-select");
 const settingsBtn = document.getElementById("settings-btn");
 const logoutBtn = document.getElementById("logout-btn");
 const statusMsg = document.getElementById("status-msg");
+
+// Offline Banner
+const offlineBanner = document.getElementById("offline-banner");
 
 // Active Problem Section DOM Elements
 const problemHeaderLabel = document.getElementById("problem-header-label");
@@ -44,6 +48,20 @@ const resultPath = document.getElementById("result-path");
 const resultTime = document.getElementById("result-time");
 const resultLink = document.getElementById("result-link");
 
+// Last Sync Status Card DOM Elements
+const lastSyncState = document.getElementById("last-sync-state");
+const lastSyncDetails = document.getElementById("last-sync-details");
+const lastSyncProblem = document.getElementById("last-sync-problem");
+const lastSyncRepo = document.getElementById("last-sync-repo");
+const lastSyncBadge = document.getElementById("last-sync-badge");
+const lastSyncTime = document.getElementById("last-sync-time");
+
+// Pending Syncs Recovery Card DOM Elements
+const pendingSyncsCard = document.getElementById("pending-syncs-card");
+const pendingCount = document.getElementById("pending-count");
+const retryPendingBtn = document.getElementById("retry-pending-btn");
+const clearPendingBtn = document.getElementById("clear-pending-btn");
+
 // History controls
 const historyCard = document.getElementById("history-card");
 const historyList = document.getElementById("history-list");
@@ -54,7 +72,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   await renderActiveProblem();
   await renderLatestSubmission();
   await renderSyncHistory();
+  await renderLastSyncStatus();
+  await renderPendingSyncs();
+  updateOfflineStatus();
   setupEventListeners();
+  await Logger.logInfo("startup", "Popup opened and UI initialized.");
 });
 
 /**
@@ -341,6 +363,14 @@ function setupEventListeners() {
   // Sync button click event
   syncBtn.addEventListener("click", handleSyncClick);
 
+  // Online / Offline listeners
+  window.addEventListener("online", updateOfflineStatus);
+  window.addEventListener("offline", updateOfflineStatus);
+
+  // Pending sync queue controls
+  retryPendingBtn.addEventListener("click", handleRetryPending);
+  clearPendingBtn.addEventListener("click", handleClearPending);
+
   // Task 12 requirement: Subscribe to storage updates to update popup in real-time
   chrome.storage.onChanged.addListener(async (changes, namespace) => {
     if (namespace === "local") {
@@ -360,8 +390,245 @@ function setupEventListeners() {
         console.log("[Popup] Sync history cache changed, re-rendering.");
         await renderSyncHistory();
       }
+      if (changes.last_sync_result) {
+        console.log("[Popup] Last sync result changed, re-rendering.");
+        await renderLastSyncStatus();
+      }
+      if (changes.pending_syncs) {
+        console.log("[Popup] Pending syncs changed, re-rendering.");
+        await renderPendingSyncs();
+      }
     }
   });
+}
+
+/**
+ * Classifies an HTTP or network error into a user-friendly message.
+ */
+function classifyError(error) {
+  if (!navigator.onLine || error.status === 503 || (error.message && error.message.includes("Unable to connect"))) {
+    return "Internet connection unavailable";
+  }
+  if (error.status === 408 || (error.message && error.message.includes("timed out")) || (error.message && error.message.includes("Request timed out"))) {
+    return "Request timed out";
+  }
+  if (error.status === 401) {
+    return "Authentication expired";
+  }
+  if (error.status === 403) {
+    return "Repository access denied";
+  }
+  if (error.status === 409) {
+    return "Already synced";
+  }
+  if (error.status === 500) {
+    return "Server error";
+  }
+  return error.message || "Unknown error";
+}
+
+/**
+ * Updates successful and failed sync stats in chrome storage.
+ */
+function updateSyncStats(isSuccess) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["sync_stats"], (result) => {
+      const stats = result.sync_stats || { total_syncs: 0, successful_syncs: 0, failed_syncs: 0 };
+      stats.total_syncs += 1;
+      if (isSuccess) {
+        stats.successful_syncs += 1;
+      } else {
+        stats.failed_syncs += 1;
+      }
+      chrome.storage.local.set({ sync_stats: stats }, () => resolve());
+    });
+  });
+}
+
+/**
+ * Renders the last sync status details card.
+ */
+async function renderLastSyncStatus() {
+  const result = await chrome.storage.local.get(["last_sync_result"]);
+  const lastSync = result.last_sync_result;
+
+  if (!lastSync) {
+    lastSyncState.textContent = "No Previous Sync";
+    lastSyncDetails.classList.add("hidden");
+    return;
+  }
+
+  if (lastSync.status === "success") {
+    lastSyncState.innerHTML = '<span style="color: var(--success-color)">✓ Last Sync Successful</span>';
+    lastSyncBadge.className = "history-status-badge completed";
+    lastSyncBadge.textContent = "Success";
+  } else {
+    lastSyncState.innerHTML = '<span style="color: var(--danger-color)">⚠ Last Sync Failed</span>';
+    lastSyncBadge.className = "history-status-badge failed";
+    lastSyncBadge.textContent = "Failed";
+  }
+
+  lastSyncProblem.textContent = lastSync.problem_title || "Unknown";
+  lastSyncRepo.textContent = lastSync.repository_name || "Unknown";
+  lastSyncTime.textContent = lastSync.timestamp ? new Date(lastSync.timestamp).toLocaleString() : "N/A";
+  
+  if (lastSync.status === "failed" && lastSync.error_message) {
+    lastSyncBadge.textContent = lastSync.error_message;
+  }
+
+  lastSyncDetails.classList.remove("hidden");
+}
+
+/**
+ * Renders the pending syncs queue manual recovery card.
+ */
+async function renderPendingSyncs() {
+  const result = await chrome.storage.local.get(["pending_syncs"]);
+  const queue = result.pending_syncs || [];
+
+  if (queue.length === 0) {
+    pendingSyncsCard.classList.add("hidden");
+    return;
+  }
+
+  pendingCount.textContent = queue.length;
+  pendingSyncsCard.classList.remove("hidden");
+}
+
+/**
+ * Monitors connection state changes to disable/enable inputs.
+ */
+function updateOfflineStatus() {
+  const isOffline = !navigator.onLine;
+  if (isOffline) {
+    offlineBanner.classList.remove("hidden");
+    syncBtn.disabled = true;
+    syncBtn.textContent = "Offline";
+    Logger.logInfo("sync", "Offline Detection: Browser went offline");
+  } else {
+    offlineBanner.classList.add("hidden");
+    renderLatestSubmission();
+    Logger.logInfo("sync", "Offline Detection: Browser went online");
+  }
+}
+
+/**
+ * Writes failed requests to pending queue in chrome storage.
+ */
+async function addRequestToPendingQueue(submissionId, repoId, payload) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["pending_syncs"], async (result) => {
+      const queue = result.pending_syncs || [];
+      if (!queue.some(item => item.submission_id === submissionId && item.repository_id === repoId)) {
+        queue.push({
+          submission_id: submissionId,
+          repository_id: repoId,
+          payload,
+          created_at: new Date().toISOString()
+        });
+        await chrome.storage.local.set({ pending_syncs: queue });
+        await Logger.logInfo("sync", `Queue Addition: Added ${payload.problem_title} to pending syncs`);
+      }
+      resolve();
+    });
+  });
+}
+
+/**
+ * Retries all pending sync items one-by-one.
+ */
+async function handleRetryPending() {
+  const token = await StorageClient.getToken();
+  if (!token) {
+    showStatus("Authentication required to retry syncs.", "error");
+    return;
+  }
+
+  if (!navigator.onLine) {
+    showStatus("Cannot retry while offline.", "error");
+    return;
+  }
+
+  const result = await chrome.storage.local.get(["pending_syncs"]);
+  const queue = result.pending_syncs || [];
+  if (queue.length === 0) return;
+
+  retryPendingBtn.disabled = true;
+  retryPendingBtn.textContent = "Retrying...";
+  showStatus(`Processing ${queue.length} pending syncs...`, "");
+
+  await Logger.logInfo("sync", `Queue Retry: Starting retry for ${queue.length} items`);
+
+  let succeeded = 0;
+  let failed = 0;
+  const remainingQueue = [];
+
+  for (const item of queue) {
+    try {
+      await APIClient.syncLeetCodeSubmission(token, item.payload);
+      succeeded++;
+      await updateSyncStats(true);
+      
+      const lastSyncResultPayload = {
+        status: "success",
+        timestamp: Date.now(),
+        problem_title: item.payload.problem_title,
+        repository_name: "GitHub Repository",
+        repository_id: item.repository_id,
+        submission_id: item.submission_id
+      };
+      await chrome.storage.local.set({ last_sync_result: lastSyncResultPayload });
+      await Logger.logInfo("sync", `Queue Removal: Removed ${item.payload.problem_title} from queue after successful sync`);
+    } catch (err) {
+      failed++;
+      remainingQueue.push(item);
+      
+      const classified = classifyError(err);
+      await updateSyncStats(false);
+      
+      const lastSyncResultPayload = {
+        status: "failed",
+        timestamp: Date.now(),
+        problem_title: item.payload.problem_title,
+        repository_name: "GitHub Repository",
+        repository_id: item.repository_id,
+        submission_id: item.submission_id,
+        error_message: classified
+      };
+      await chrome.storage.local.set({ last_sync_result: lastSyncResultPayload });
+      await Logger.logError("sync", `Sync Failure: Queued retry failed for ${item.payload.problem_title}: ${classified}`);
+    }
+  }
+
+  await chrome.storage.local.set({ pending_syncs: remainingQueue });
+  
+  retryPendingBtn.disabled = false;
+  retryPendingBtn.textContent = "Retry Pending Syncs";
+
+  if (failed === 0) {
+    showStatus(`Successfully synced all ${succeeded} pending items!`, "success");
+  } else {
+    showStatus(`Synced ${succeeded} items. ${failed} failed.`, "error");
+  }
+
+  await renderPendingSyncs();
+  await renderLastSyncStatus();
+  await renderLatestSubmission();
+  await chrome.storage.local.remove(["sync_history_cache"]);
+  await renderSyncHistory();
+}
+
+/**
+ * Clears the pending syncs queue.
+ */
+async function handleClearPending() {
+  if (!confirm("Are you sure you want to clear all pending syncs?")) {
+    return;
+  }
+  await chrome.storage.local.set({ pending_syncs: [] });
+  await Logger.logInfo("sync", "Queue Removal: Cleared all pending syncs manually");
+  await renderPendingSyncs();
+  showStatus("Pending syncs queue cleared.", "success");
 }
 
 /**
@@ -386,6 +653,40 @@ async function handleSyncClick() {
   const repoText = repoSelect.options[repoSelect.selectedIndex]?.text || "Selected Repository";
   const confirmMessage = `Sync this solution?\n\nProblem: ${submission.problem_title}\nLanguage: ${submission.language}\nRepository: ${repoText}`;
   if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  // Check offline first
+  if (!navigator.onLine) {
+    const errorMsg = "Internet connection unavailable";
+    showStatus(errorMsg, "error");
+    
+    const payload = {
+      repository_id: repoId,
+      problem_title: submission.problem_title,
+      problem_slug: submission.problem_slug,
+      difficulty: submission.difficulty.toLowerCase(),
+      language: submission.language,
+      source_code: submission.source_code
+    };
+    
+    await addRequestToPendingQueue(submission.submission_id, repoId, payload);
+    await updateSyncStats(false);
+    
+    const lastSyncResultPayload = {
+      status: "failed",
+      timestamp: Date.now(),
+      problem_title: submission.problem_title,
+      repository_name: repoText,
+      repository_id: repoId,
+      submission_id: submission.submission_id,
+      error_message: errorMsg
+    };
+    await chrome.storage.local.set({ last_sync_result: lastSyncResultPayload });
+    await Logger.logError("sync", `Sync Failure: ${errorMsg}`);
+    
+    await renderLastSyncStatus();
+    await renderPendingSyncs();
     return;
   }
 
@@ -428,16 +729,53 @@ async function handleSyncClick() {
       last_sync: lastSyncPayload
     });
 
+    await updateSyncStats(true);
+    
+    const lastSyncResultPayload = {
+      status: "success",
+      timestamp: now,
+      problem_title: submission.problem_title,
+      repository_name: repoText,
+      repository_id: repoId,
+      submission_id: submission.submission_id
+    };
+    await chrome.storage.local.set({ last_sync_result: lastSyncResultPayload });
+    await Logger.logInfo("sync", `Sync Success: Solution synced successfully for ${submission.problem_title}`);
+
     syncBtn.textContent = "\u2713 Synced Successfully";
     showStatus("Solution synced successfully!", "success");
 
-    // Force clear the history cache to trigger fresh fetch
     await chrome.storage.local.remove(["sync_history_cache"]);
     await renderSyncHistory();
+    await renderLastSyncStatus();
   } catch (error) {
     console.error("Sync failed:", error);
+    const classified = classifyError(error);
     
-    // Handle 409 Conflict specifically as "Already Synced"
+    await updateSyncStats(false);
+    
+    const lastSyncResultPayload = {
+      status: "failed",
+      timestamp: Date.now(),
+      problem_title: submission.problem_title,
+      repository_name: repoText,
+      repository_id: repoId,
+      submission_id: submission.submission_id,
+      error_message: classified
+    };
+    await chrome.storage.local.set({ last_sync_result: lastSyncResultPayload });
+    await Logger.logError("sync", `Sync Failure: ${classified}`);
+
+    const isNetworkError = error.status === 503 || (error.message && error.message.includes("Unable to connect"));
+    const isTimeoutError = error.status === 408 || (error.message && error.message.includes("timed out"));
+    const is5xxError = error.status >= 500 && error.status < 600;
+    const shouldQueue = isNetworkError || isTimeoutError || is5xxError;
+
+    if (shouldQueue) {
+      await addRequestToPendingQueue(submission.submission_id, repoId, payload);
+      await renderPendingSyncs();
+    }
+
     if (error.status === 409) {
       const now = Date.now();
       const lastSyncPayload = {
@@ -451,10 +789,11 @@ async function handleSyncClick() {
       showStatus("This submission already exists in the selected repository.", "error");
     } else {
       syncBtn.textContent = "Sync Failed";
-      showStatus(error.message || "Synchronization failed.", "error");
-      // Enable sync button again so user can retry
-      syncBtn.disabled = false;
+      showStatus(classified, "error");
+      syncBtn.disabled = !navigator.onLine;
     }
+    
+    await renderLastSyncStatus();
   }
 }
 

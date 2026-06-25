@@ -1,22 +1,31 @@
 import uuid
 from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
+
 from app.models.enums import BootstrapStatus
 
 
 class RepositoryBase(BaseModel):
     """Base fields for repository schemas."""
-    repo_name: str = Field(..., max_length=255, description="Name of the GitHub repository")
-    is_private: bool = Field(default=True, description="Whether the repository should be private")
+
+    repo_name: str = Field(
+        ..., max_length=255, description="Name of the GitHub repository"
+    )
+    is_private: bool = Field(
+        default=True, description="Whether the repository should be private"
+    )
 
 
 class RepositoryCreate(RepositoryBase):
     """Schema for repository provisioning request."""
+
     pass
 
 
 class RepositoryResponse(BaseModel):
     """Schema for responding with repository metadata."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
@@ -38,6 +47,7 @@ class RepositoryResponse(BaseModel):
 
 class RepositoryCreateResponse(BaseModel):
     """Response schema returned after repository creation, detailing bootstrapping outcomes."""
+
     repository: RepositoryResponse
     bootstrap_status: BootstrapStatus
     message: str

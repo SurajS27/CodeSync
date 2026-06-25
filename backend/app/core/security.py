@@ -1,6 +1,8 @@
-import jwt
 import logging
 from datetime import datetime, timedelta, timezone
+
+import jwt
+
 from app.core.config import settings
 from app.services.oauth_state_service import OAuthStateService
 
@@ -9,13 +11,17 @@ logger = logging.getLogger("codesync.security")
 
 def create_access_token(user_id: str, github_id: str) -> str:
     """Generates a HS256 signed JWT for the authenticated user."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
     to_encode = {
         "sub": str(user_id),
         "github_id": github_id,
-        "exp": int(expire.timestamp())
+        "exp": int(expire.timestamp()),
     }
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
     return encoded_jwt
 
 
@@ -23,9 +29,7 @@ def verify_access_token(token: str) -> dict | None:
     """Decodes and validates a JWT access token, returning its payload if valid."""
     try:
         payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
     except jwt.ExpiredSignatureError:

@@ -1,5 +1,7 @@
 from collections.abc import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import settings
 
 # Create asynchronous engine targeting psycopg (v3)
@@ -7,7 +9,9 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.ENV == "development",
-    future=True
+    future=True,
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 # Configure the sessionmaker for AsyncSession
@@ -16,7 +20,7 @@ SessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
     autocommit=False,
-    autoflush=False
+    autoflush=False,
 )
 
 

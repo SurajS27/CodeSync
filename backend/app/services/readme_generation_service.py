@@ -1,5 +1,6 @@
 import datetime
 from typing import Optional
+
 from app.services.path_generation_service import PathGenerationService
 
 
@@ -16,7 +17,7 @@ class READMEGenerationService:
         "go": "Go",
         "rust": "Rust",
         "c": "C",
-        "csharp": "C#"
+        "csharp": "C#",
     }
 
     @classmethod
@@ -34,20 +35,20 @@ class READMEGenerationService:
         language: str,
         runtime: Optional[str] = None,
         memory: Optional[str] = None,
-        commit_sha: Optional[str] = None
+        commit_sha: Optional[str] = None,
     ) -> str:
         """Generates standard GitHub-friendly README markdown for a solved problem."""
-        
+
         # Format variables
         lang_display = cls.get_language_display(language)
         difficulty_cap = difficulty.strip().capitalize()
         difficulty_lower = difficulty.strip().lower()
         slug_lower = problem_slug.strip().lower()
-        
+
         # Link and path variables
         problem_url = f"https://leetcode.com/problems/{slug_lower}/"
         repo_location = f"leetcode/{difficulty_lower}/{slug_lower}/"
-        
+
         try:
             solution_file = PathGenerationService.generate_solution_filename(language)
         except Exception:
@@ -78,9 +79,11 @@ class READMEGenerationService:
         # 2. Optional Metrics section (skip if None, empty, or "N/A" values)
         has_runtime = runtime and runtime.strip() and runtime.strip().upper() != "N/A"
         has_memory = memory and memory.strip() and memory.strip().upper() != "N/A"
-        
+
         if has_runtime or has_memory:
-            markdown += f"## Submission Metrics\n\n| Metric | Value |\n|----------|----------|\n"
+            markdown += (
+                "## Submission Metrics\n\n| Metric | Value |\n|----------|----------|\n"
+            )
             if has_runtime:
                 markdown += f"| Runtime | {runtime.strip()} |\n"
             if has_memory:
@@ -90,9 +93,7 @@ class READMEGenerationService:
         # 3. Optional GitHub Commit SHA section
         if commit_sha and commit_sha.strip():
             markdown += (
-                f"## GitHub Commit\n\n"
-                f"Commit SHA:\n"
-                f"{commit_sha.strip()}\n\n"
+                f"## GitHub Commit\n\n" f"Commit SHA:\n" f"{commit_sha.strip()}\n\n"
             )
 
         # 4. Sync Information footer

@@ -16,7 +16,7 @@
         </svg>
         <span class="logo-text">CodeSync Settings</span>
       </div>
-      <span class="version">v0.6.0</span>
+      <span class="version">v0.10.0</span>
     </header>
 
     <main class="main-layout">
@@ -59,6 +59,42 @@
           </div>
         </div>
         <button id="logout-btn" class="btn btn-danger">Log Out of CodeSync</button>
+      </section>
+
+      <!-- Developer Diagnostics & Statistics Card -->
+      <section class="card">
+        <h2>Developer Diagnostics & Stats</h2>
+        <p class="description">Review synchronization status metrics and debug events for troubleshooting.</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <!-- Stats Column -->
+          <div style="background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 8px;">
+            <h4 style="margin-bottom: 8px; color: var(--secondary-accent);">Sync Statistics</h4>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+              <div>Total attempts: <strong id="stats-total">0</strong></div>
+              <div>Successful syncs: <strong id="stats-success" style="color: var(--success-color);">0</strong></div>
+              <div>Failed syncs: <strong id="stats-failed" style="color: var(--danger-color);">0</strong></div>
+            </div>
+          </div>
+          <!-- Logs Info Column -->
+          <div style="background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 8px;">
+            <h4 style="margin-bottom: 8px; color: var(--secondary-accent);">Diagnostic Logs</h4>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+              <div>Total log entries: <strong id="log-count">0</strong></div>
+              <div>Last event: <span id="last-event-text" style="color: var(--text-secondary); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 140px;">None</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+          <button id="view-logs-btn" class="btn btn-secondary flex-grow">View Logs</button>
+          <button id="clear-logs-btn" class="btn btn-danger">Clear Logs</button>
+        </div>
+
+        <!-- Logs Viewer (Collapsible) -->
+        <div id="logs-viewer-box" class="hidden" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; max-height: 250px; overflow-y: auto; font-family: monospace; font-size: 11px;">
+          <div id="logs-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
       </section>
 
       <!-- Dynamic notification center -->
